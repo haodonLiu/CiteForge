@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "pca-lite"
+version = "0.1.0"
+description = "面向论文综述的多 Agent 协作框架"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "typer>=0.9",
+    "rich>=13.0",
+    "httpx>=0.25",
+    "pyyaml>=6.0",
+    "pymupdf>=1.23",
+    "chromadb>=0.4",
+    "sentence-transformers>=2.2",
+]
+
+[project.scripts]
+pca = "pca_lite.cli.app:app"
+
+[tool.setuptools.packages.find]
+include = ["pca_lite*"]

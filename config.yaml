@@ -1,0 +1,100 @@
+# ============================================================
+# PCA-Lite Configuration Template
+# ============================================================
+# 核心字段：必须填写，否则无法启动
+# 可选字段：有默认值，不填也能跑，填了则覆盖
+
+# ---------- LLM（主推理模型）[核心] ----------
+llm:
+  provider: ""                    # openai | anthropic | ollama
+  base_url: ""                    # API 端点地址
+  api_key: ""                     # API Key，支持环境变量引用: "${PCA_LLM_API_KEY}"
+  model: ""                       # 模型名称
+  temperature: 0.3                # 可选，默认 0.3
+  max_tokens: 4096                # 可选，默认 4096
+  timeout: 120                    # 可选，默认 120 秒
+  retry:
+    max_attempts: 3
+    backoff: "exponential"
+    initial_delay: 1.0
+    max_delay: 30.0
+
+# ---------- LLM（轻量模型）[可选] ----------
+# 不填则复用 llm 配置
+llm_lite:
+  provider: ""
+  base_url: ""
+  api_key: ""
+  model: ""
+  temperature: 0.3
+  max_tokens: 1024
+  timeout: 60
+  retry:
+    max_attempts: 3
+    backoff: "exponential"
+    initial_delay: 1.0
+    max_delay: 30.0
+
+# ---------- 嵌入模型（Embedding）[核心] ----------
+embedding:
+  mode: ""                        # local | api
+  api_base_url: ""
+  api_key: ""
+  api_model: ""
+  local_model: ""                 # 如: /home/user/models/bge-small-en
+  local_device: "cpu"              # cpu | cuda | mps
+  dimensions:                     # 向量维度，需与模型匹配
+  batch_size: 64
+  mrl_enabled: false
+  mrl_dimensions: []
+
+# ---------- 重排序模型（Reranker）[可选] ----------
+# 不填则禁用重排序
+reranker:
+  mode: ""                        # local | api
+  local_model: ""
+  local_device: "cpu"
+  api_provider: ""
+  api_base_url: ""
+  api_key: ""
+  api_model: ""
+  top_k: 5
+  recall_multiplier: 4
+
+# ---------- 向量数据库 [可选] ----------
+vector_db:
+  engine: "chroma"
+  persist_dir: "./workspace/vector_index"
+  collection_name: "papers"
+
+# ---------- 网络搜索 [可选] ----------
+search:
+  provider: ""
+  api_key: ""
+  base_url: ""
+  max_results: 15
+
+# ---------- 文档解析 [可选] ----------
+parser:
+  pdf_engine: "pymupdf"
+  chunk_size: 512
+  chunk_overlap: 50
+  extract_images: true
+  image_dir: "./workspace/images"
+
+# ---------- 调度层 [可选] ----------
+orchestrator:
+  max_retry: 1
+  max_total_tokens: 50000
+  max_step_tokens: 8000
+  consensus_threshold: 0.67
+
+# ---------- 状态持久化 [可选] ----------
+persistence:
+  state_file: "./workspace/state.json"
+  hash_algorithm: "sha256"
+
+# ---------- 日志 [可选] ----------
+logging:
+  level: "INFO"
+  file: "./workspace/pca.log"
