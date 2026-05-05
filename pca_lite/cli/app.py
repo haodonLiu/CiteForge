@@ -161,7 +161,7 @@ def config_cmd(
         masked_key = mask_key(config.llm.api_key) if config.llm.api_key else ""
         console.print(Panel(
             f"[bold]provider:[/bold] {config.llm.provider}\n"
-            f"[bold]base_url:[/bold] {config.llm.api_base_url}\n"
+            f"[bold]base_url:[/bold] {config.llm.base_url}\n"
             f"[bold]model:[/bold] {config.llm.model}\n"
             f"[bold]api_key:[/bold] {masked_key}\n"
             f"[bold]embedding mode:[/bold] {config.embedding.mode}",

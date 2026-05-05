@@ -74,7 +74,7 @@ class OrchestratorEngine:
                     print(f"[RETRY] 步骤 {step.id} 失败，重试 ({retry_count}/{plan.constraints.max_retry})")
                     state.timestamp = datetime.now().isoformat()
                     self.workspace.write_json("state.json", state)
-                    state.completed_steps.append(step.id)
+                    # Do NOT mark completed — retry is still pending
                 else:
                     print(f"[FAIL] 步骤 {step.id} 超过最大重试次数")
                     state.completed_steps.append(step.id)
