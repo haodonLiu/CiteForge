@@ -22,45 +22,45 @@
 
 ---
 
-## Week 2：预处理层 + Researcher Agent ❌ 未实现
+## Week 2：预处理层 + Researcher Agent ✅ 已完成
 
 ### 预处理层 (Ingestion)
 
-| 功能 | 状态 | 说明 |
+| 功能 | 状态 | 文件 |
 |------|------|------|
-| PDF 文本提取 (PyMuPDF) | ❌ | 需实现 `pca_lite/ingestion/parser.py` |
-| 元数据提取 (正则) | ❌ | 标题/作者/年份/DOI 正则匹配 |
-| 文本分块 (chunking) | ❌ | `RecursiveCharacterTextSplitter` |
-| 向量化索引 (Chroma) | ❌ | 需实现 `pca_lite/retrieval/vector_store.py` |
-| 本地 Embedding 模型封装 | ❌ | 需实现 `pca_lite/llm/embedding.py` |
+| PDF 文本提取 (PyMuPDF) | ✅ | `pca_lite/ingestion/parser.py` |
+| 元数据提取 (正则) | ✅ | `pca_lite/ingestion/metadata.py` |
+| 文本分块 (chunking) | ✅ | `pca_lite/ingestion/splitter.py` |
+| 向量化索引 (Chroma) | ✅ | `pca_lite/retrieval/vector_store.py` |
+| 本地 Embedding 模型封装 | ✅ | `pca_lite/llm/embedding.py` |
 
 ### Agent
 
-| 功能 | 状态 | 说明 |
+| 功能 | 状态 | 文件 |
 |------|------|------|
-| Researcher Agent | ❌ | `pca_lite/agents/researcher.py` + System Prompt |
-| Web Search 工具 | ❌ | Semantic Scholar / arXiv API |
+| Researcher Agent | ✅ | `pca_lite/agents/researcher.py` + `pca_lite/prompts/researcher.md` |
+| Web Search 工具 | ✅ | `pca_lite/search/semantic_scholar.py` |
 
 ### Provider 抽象层
 
-| 功能 | 状态 | 说明 |
+| 功能 | 状态 | 文件 |
 |------|------|------|
-| OpenAI Provider | ❌ | `pca_lite/llm/providers/openai.py` |
-| Anthropic Provider | ❌ | `pca_lite/llm/providers/anthropic.py` |
-| Ollama Provider | ❌ | `pca_lite/llm/providers/ollama.py` |
-| Provider 统一接口 | ❌ | `pca_lite/llm/base.py` |
+| OpenAI Provider | ✅ | `pca_lite/llm/providers/openai.py` |
+| Anthropic Provider | ✅ | `pca_lite/llm/providers/anthropic.py` |
+| Ollama Provider | ✅ | `pca_lite/llm/providers/ollama.py` |
+| Provider 统一接口 | ✅ | `pca_lite/llm/base.py` |
 
 ---
 
-## Week 3：Agent 协作 + 引用溯源 ❌ 未实现
+## Week 3：Agent 协作 + 引用溯源 ✅ 部分完成
 
-| 功能 | 状态 | 说明 |
+| 功能 | 状态 | 文件 |
 |------|------|------|
-| Analyst Agent | ❌ | `pca_lite/agents/analyst.py` + System Prompt |
-| Writer Agent | ❌ | `pca_lite/agents/writer.py` + System Prompt |
+| Analyst Agent | ✅ | `pca_lite/agents/analyst.py` + `pca_lite/prompts/analyst.md` |
+| Writer Agent | ✅ | `pca_lite/agents/writer.py` + `pca_lite/prompts/writer.md` |
+| 引用溯源锁 | ✅ | literature_pool.json 1-based index 映射 |
+| P0 重排序 (Reranker) | ✅ | `pca_lite/retrieval/reranker.py` |
 | 交叉校验 (1 轮重试) | ❌ | Orchestrator 中实现 |
-| 引用溯源锁 | ❌ | literature_pool.json 1-based index 映射 |
-| P0 重排序 (Reranker) | ❌ | `pca_lite/retrieval/reranker.py` |
 
 ---
 
@@ -93,12 +93,13 @@
 
 ## 技术债务 / 待办
 
-- [ ] 完善 `cli/app.py` 的 error handling（目前大部分异常直接抛出）
-- [ ] 添加 `pca_lite/agents/` 目录结构
-- [ ] 添加 `pca_lite/llm/providers/` 目录结构
-- [ ] 添加 `pca_lite/ingestion/` 目录结构
-- [ ] 添加 `pca_lite/retrieval/` 目录结构
-- [ ] 添加 `pca_lite/prompts/` Jinja2 模板（Agent System Prompts）
+- [x] 添加 `pca_lite/agents/` 目录结构 ✅
+- [x] 添加 `pca_lite/llm/providers/` 目录结构 ✅
+- [x] 添加 `pca_lite/ingestion/` 目录结构 ✅
+- [x] 添加 `pca_lite/retrieval/` 目录结构 ✅
+- [x] 添加 `pca_lite/prompts/` Jinja2 模板（Agent System Prompts）✅
 - [ ] 添加单元测试（目前无 tests/）
+- [ ] 完善 `cli/app.py` 的 error handling（目前大部分异常直接抛出）
 - [ ] 配置 pydantic-settings BaseSettings 的 yaml_file 路径处理
 - [ ] `interactive_setup()` 写入 yaml 后 key 是明文，需加密或用环境变量引用
+- [ ] 添加 `pca_lite/search/` 目录结构（Web Search provider）✅
