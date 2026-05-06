@@ -43,6 +43,12 @@ class SemanticScholarSearch:
                     params=params,
                     headers=headers,
                 )
+                if resp.status_code == 429:
+                    print("[WARN] Semantic Scholar rate limited (429)")
+                    return []
+                if resp.status_code == 403:
+                    print("[WARN] Semantic Scholar API key invalid or forbidden (403)")
+                    return []
                 resp.raise_for_status()
                 data = resp.json()
 
@@ -51,8 +57,11 @@ class SemanticScholarSearch:
                 paper = self._parse_paper(hit)
                 papers.append(paper)
             return papers
-        except Exception as e:
-            print(f"[WARN] Semantic Scholar search failed: {e}")
+        except httpx.HTTPStatusError as e:
+            print(f"[WARN] Semantic Scholar HTTP error: {e}")
+            return []
+        except httpx.RequestError as e:
+            print(f"[WARN] Semantic Scholar request failed: {e}")
             return []
 
     def _parse_paper(self, hit: dict) -> dict[str, Any]:

@@ -109,7 +109,7 @@ class ValidationIssue(BaseModel):
 class ValidationReport(BaseModel):
     model_config = ConfigDict(strict=True)
 
-    pass_: bool = Field(..., alias="pass")
+    passed: bool = Field(...)
     issues: list[ValidationIssue] = Field(default_factory=list)
     severity: str = Field(default="medium", pattern=r"^(low|medium|high)$")
 

@@ -113,7 +113,7 @@ class OrchestratorEngine:
 
         with ThreadPoolExecutor(max_workers=min(len(steps), self.max_workers)) as executor:
             futures = {
-                executor.submit(self._run_step_safe, step, plan): step
+                executor.submit(self._run_step_safe, step): step
                 for step in steps
             }
             all_success = True
@@ -132,7 +132,7 @@ class OrchestratorEngine:
         state.timestamp = datetime.now().isoformat()
         self.workspace.write_json("state.json", state)
 
-    def _run_step_safe(self, step: Step, plan: TaskPlan) -> None:
+    def _run_step_safe(self, step: Step) -> None:
         self.execute_step(step)
 
     def execute_step(self, step: Step) -> dict:

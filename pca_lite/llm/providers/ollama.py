@@ -1,4 +1,4 @@
-import time
+import asyncio
 from typing import Any
 
 import httpx
@@ -69,4 +69,4 @@ class OllamaProvider(BaseProvider):
             return [item["relevance_score"] for item in data["results"]]
 
     async def _sleep(self, delay: float) -> None:
-        time.sleep(delay)
+        await asyncio.sleep(delay)

@@ -1,4 +1,5 @@
 """Analyst Agent - analyze literature for themes, findings, and gaps."""
+import asyncio
 from pca_lite.core.models import LiteratureEntry
 from pca_lite.llm.base import BaseProvider
 
@@ -70,14 +71,15 @@ class AnalystAgent:
         Returns:
             Analysis report with themes, trends, and gaps.
         """
-        themes = await self.analyze_themes(verified_entries)
-        trends = await self._extract_trends(verified_entries)
-        gaps = await self._identify_gaps(verified_entries)
-
+        results = await asyncio.gather(
+            self.analyze_themes(verified_entries),
+            self._extract_trends(verified_entries),
+            self._identify_gaps(verified_entries),
+        )
         return {
-            "analysis": themes,
-            "trends": trends,
-            "gaps": gaps,
+            "analysis": results[0],
+            "trends": results[1],
+            "gaps": results[2],
         }
 
     async def _extract_trends(self, entries: list[LiteratureEntry]) -> list[str]:

@@ -1,8 +1,5 @@
 """Hybrid search combining BM25 keyword matching with vector similarity."""
 import math
-from collections import Counter
-from re import split as re_split
-
 from pca_lite.retrieval.vector_store import VectorStore
 
 
@@ -37,8 +34,7 @@ class BM25:
         self._avgdl = sum(self._doc_lengths) / max(self._N, 1)
 
     def _tokenize(self, text: str) -> list[str]:
-        tokens = re_split(r"\W+", text.lower())
-        return [t for t in tokens if t]
+        return [t for t in text.lower().split() if t]
 
     def search(self, query: str, top_k: int = 20) -> list[tuple[int, float]]:
         """Search index, return (doc_index, score) sorted descending."""

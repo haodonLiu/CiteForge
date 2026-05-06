@@ -46,18 +46,23 @@ def render() -> None:
                 st.session_state["execution_active"] = False
             st.rerun()
 
-        try:
+        def run_in_thread() -> None:
             from pca_lite.web.execution import run_execution
-            run_execution(
-                topic=topic,
-                files=selected_files,
-                workspace_dir=WORKSPACE_DIR,
-                callback=callback,
-            )
-        except Exception as e:
-            st.session_state["execution_active"] = False
-            st.session_state["execution_log"].append({"phase": "error", "msg": str(e)})
-            st.rerun()
+            try:
+                run_execution(
+                    topic=topic,
+                    files=selected_files,
+                    workspace_dir=WORKSPACE_DIR,
+                    callback=callback,
+                )
+            except Exception as e:
+                st.session_state["execution_log"].append({"phase": "error", "msg": str(e)})
+                st.session_state["execution_active"] = False
+                st.rerun()
+
+        import threading
+        threading.Thread(target=run_in_thread, daemon=True).start()
+        st.rerun()
 
     if resume_clicked and state_path.exists():
         st.info("恢复功能即将可用")

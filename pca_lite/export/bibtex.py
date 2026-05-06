@@ -2,10 +2,9 @@
 import json
 import re
 from pathlib import Path
-from typing import Any
 
 
-def generate_bibtex(entries: list[dict[str, Any]], style: str = "plain") -> str:
+def generate_bibtex(entries: list[dict], style: str = "plain") -> str:
     """Convert literature entries to BibTeX format.
 
     Args:
@@ -19,7 +18,6 @@ def generate_bibtex(entries: list[dict[str, Any]], style: str = "plain") -> str:
     for entry in entries:
         idx = entry.get("index", 0)
         key = _to_bibkey(entry.get("title", f"paper{idx}"), idx)
-        entry_type = _infer_type(entry)
 
         lines.append(f"@article{{{key},")
         if entry.get("title"):
@@ -54,18 +52,13 @@ def generate_bibtex(entries: list[dict[str, Any]], style: str = "plain") -> str:
 
 def _to_bibkey(title: str, index: int) -> str:
     words = re.findall(r"[A-Za-z]+", title)
-    suffix = words[0].lower() if words else f"p{index}"
+    if len(words) >= 2:
+        suffix = f"{words[0].lower()}_{words[1].lower()}"
+    else:
+        suffix = words[0].lower() if words else f"p{index}"
     return f"pca{index}_{suffix}"
 
 
-def _infer_type(entry: dict[str, Any]) -> str:
-    url = entry.get("url", "")
-    if "arxiv.org" in url.lower():
-        return "article"
-    doi = entry.get("doi", "")
-    if doi:
-        return "article"
-    return "misc"
 
 
 def export_literature_pool(pool_path: Path, output_path: Path | None = None) -> str:

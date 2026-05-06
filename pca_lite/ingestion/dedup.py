@@ -19,11 +19,15 @@ class Deduplicator:
                 normalized_doi = self._normalize_doi(entry.doi)
                 if normalized_doi and normalized_doi in seen_dois:
                     continue
-                seen_dois.add(normalized_doi)
+            else:
+                normalized_doi = None
 
             norm_title = self._normalize_title(entry.title)
             if norm_title in seen_titles:
                 continue
+
+            if normalized_doi:
+                seen_dois.add(normalized_doi)
             seen_titles.add(norm_title)
 
             result.append(entry)

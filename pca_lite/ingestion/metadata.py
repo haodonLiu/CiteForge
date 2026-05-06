@@ -1,7 +1,7 @@
 """Metadata extraction from PDF text using regex patterns."""
 import re
 from dataclasses import dataclass
-from pathlib import Path
+from datetime import datetime
 
 
 @dataclass
@@ -67,7 +67,8 @@ class MetadataExtractor:
         match = self.YEAR_PATTERN.search(text[:2000])
         if match:
             year = int(match.group(1))
-            if 1990 <= year <= 2030:
+            max_year = datetime.now().year + 1
+            if 1990 <= year <= max_year:
                 return year
         return None
 

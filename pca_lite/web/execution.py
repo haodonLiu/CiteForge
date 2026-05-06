@@ -1,5 +1,6 @@
 """Web UI execution runner — runs orchestrator with real agents."""
 import asyncio
+from datetime import datetime
 from pathlib import Path
 
 from pca_lite.core.models import LiteratureEntry
@@ -76,6 +77,8 @@ class ExecutionRunner:
             try:
                 existing_state = ws.read_json("state.json")
                 completed = existing_state.get("completed_steps", [])
+            except FileNotFoundError:
+                completed = []
             except Exception:
                 completed = []
 
@@ -90,7 +93,7 @@ class ExecutionRunner:
                 "completed_steps": completed,
                 "retry_counts": {},
                 "workspace_files": {},
-                "timestamp": __import__("datetime").datetime.now().isoformat(),
+                "timestamp": datetime.now().isoformat(),
             }
             ws.write_json("state.json", state)
 
@@ -110,7 +113,7 @@ class ExecutionRunner:
                     "completed_steps": completed,
                     "retry_counts": {},
                     "workspace_files": {},
-                    "timestamp": __import__("datetime").datetime.now().isoformat(),
+                    "timestamp": datetime.now().isoformat(),
                 })
             except Exception as e:
                 if callback:
