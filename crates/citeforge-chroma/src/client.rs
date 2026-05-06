@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use citeforge_core::error::CiteForgeError;
-use citeforge_core::ports::{VectorStore, SearchResult, DocumentMetadata};
+use citeforge_core::ports::{VectorStore, SearchResult};
+use citeforge_core::value_object::DocumentMetadata;
 use serde_json::json;
 use thiserror::Error;
 
@@ -109,6 +110,7 @@ impl VectorStore for ChromaStore {
     type Error = ChromaError;
 
     async fn add(&self, id: &str, embedding: Vec<f32>, metadata: DocumentMetadata) -> Result<(), Self::Error> {
+        self.ensure_collection().await?;
         self.add_batch(vec![(id.to_string(), embedding, metadata)]).await
     }
 
@@ -151,6 +153,7 @@ impl VectorStore for ChromaStore {
                             .unwrap_or_default(),
                         doi: meta.get("doi").and_then(|v| v.as_str()).map(|s| s.to_string()),
                         year: meta.get("year").and_then(|v| v.as_i64()).map(|y| y as i32),
+                        venue: None,
                     },
                 }
             })

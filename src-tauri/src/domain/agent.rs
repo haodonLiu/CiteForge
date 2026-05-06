@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use crate::domain::execution_context::TaskExecutionContext;
-use citeforge_core::error::CiteForgeError;
 
 #[async_trait]
 pub trait Agent: Send + Sync {

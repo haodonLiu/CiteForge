@@ -1,5 +1,5 @@
 use std::time::{Duration, Instant};
-use tokio::sync::CancellationToken;
+use tokio_util::sync::CancellationToken;
 
 pub struct TaskExecutionContext {
     pub cancel_token: CancellationToken,

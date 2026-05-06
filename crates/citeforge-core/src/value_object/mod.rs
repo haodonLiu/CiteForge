@@ -3,5 +3,5 @@ pub mod score;
 pub mod document_metadata;
 
 pub use citation::Citation;
-pub use score::Score;
+pub use score::{Score, ScoreComponents};
 pub use document_metadata::DocumentMetadata;

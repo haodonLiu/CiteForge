@@ -1,8 +1,10 @@
 use std::sync::Arc;
 use anyhow::Result;
 use citeforge_core::error::CiteForgeError;
-use citeforge_core::ports::{ChatProviderFactory, EmbedProviderFactory, VectorStoreFactory, ProviderConfig, StoreConfig, ChatProvider, EmbedProvider};
-use super::{OpenAIProvider, AnthropicProvider, OllamaProvider};
+use citeforge_core::ports::{ChatProviderFactory, EmbedProviderFactory, ProviderConfig, ChatProvider, EmbedProvider};
+use crate::openai::OpenAIProvider;
+use crate::anthropic::AnthropicProvider;
+use crate::ollama::OllamaProvider;
 
 pub struct LlmRegistry {
     chat_factories: std::collections::HashMap<String, Box<dyn ChatProviderFactory>>,

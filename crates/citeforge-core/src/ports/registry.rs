@@ -15,7 +15,7 @@ pub trait EmbedProviderFactory: Send + Sync {
 
 pub trait VectorStoreFactory: Send + Sync {
     fn name(&self) -> &'static str;
-    fn create(&self, config: &StoreConfig) -> Result<Arc<dyn VectorStore>, CiteForgeError>;
+    fn create(&self, config: &StoreConfig) -> Result<Arc<dyn VectorStore<Error = Box<dyn std::error::Error + Send + Sync>>>, CiteForgeError>;
 }
 
 #[derive(Debug, Clone)]

@@ -1,3 +1,3 @@
 pub mod client;
 
-pub use client::ChromaStore;
+pub use client::{ChromaStore, ChromaError};

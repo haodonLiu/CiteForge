@@ -2,8 +2,8 @@ use std::sync::Arc;
 use anyhow::Context;
 use crate::config::AppConfig;
 use crate::workspace::Database;
-use crate::domain::TaskActor;
 use citeforge_core::ports::{ChatProvider, EmbedProvider, VectorStore, DocumentParser, SearchEngine};
+use citeforge_chroma::ChromaError;
 use citeforge_llm::registry::LlmRegistry;
 use citeforge_chroma::ChromaStore;
 use citeforge_search::SemanticScholarClient;
@@ -16,7 +16,7 @@ pub struct AppContainer {
     pub llm: Arc<dyn ChatProvider>,
     pub embedder: Arc<dyn EmbedProvider>,
     pub search: Arc<dyn SearchEngine>,
-    pub vector_store: Arc<dyn VectorStore>,
+    pub vector_store: Arc<dyn VectorStore<Error = ChromaError>>,
     pub pdf_parser: Arc<dyn DocumentParser>,
     pub outbox: Arc<EventOutbox>,
     pub llm_registry: LlmRegistry,
@@ -44,16 +44,18 @@ impl AppContainer {
             .context("failed to create embed provider")?;
 
         let search: Arc<dyn SearchEngine> = Arc::new(
-            SemanticScholarClient::new(config.llm.api_key.clone().ok())
+            SemanticScholarClient::new(config.llm.api_key.clone())
         );
 
-        let vector_store: Arc<dyn VectorStore> = Arc::new(
-            ChromaStore::new(
-                "http://localhost:8000".to_string(),
-                "citeforge".to_string(),
-                1536,
-            )
+        let chroma_store = ChromaStore::new(
+            "http://localhost:8000".to_string(),
+            "citeforge".to_string(),
+            1536,
         );
+        if let Err(e) = chroma_store.ensure_collection().await {
+            tracing::warn!("failed to ensure chroma collection: {}", e);
+        }
+        let vector_store: Arc<dyn VectorStore<Error = ChromaError>> = Arc::new(chroma_store);
 
         let pdf_parser: Arc<dyn DocumentParser> = Arc::new(PdfParser);
 

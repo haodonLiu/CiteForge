@@ -11,6 +11,11 @@ pub struct ResilientChatProvider {
     max_retries: u32,
 }
 
+pub struct ResilientEmbedProvider {
+    inner: Arc<dyn EmbedProvider>,
+    fallback: Option<Arc<dyn EmbedProvider>>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 enum CircuitState {
     Closed,
@@ -72,10 +77,12 @@ impl ChatProvider for ResilientChatProvider {
         };
 
         let inner = Arc::clone(&self.inner);
+        let msgs = messages.clone();
         let result = retry(backoff, || {
             let inner = Arc::clone(&inner);
+            let msgs = msgs.clone();
             async move {
-                inner.chat(messages.clone()).await.map_err(|e| {
+                inner.chat(msgs).await.map_err(|e| {
                     backoff::Error::transient(e)
                 })
             }
@@ -103,8 +110,22 @@ impl ChatProvider for ResilientChatProvider {
     }
 }
 
+impl ResilientEmbedProvider {
+    pub fn new(inner: Arc<dyn EmbedProvider>) -> Self {
+        Self {
+            inner,
+            fallback: None,
+        }
+    }
+
+    pub fn with_fallback(mut self, fallback: Arc<dyn EmbedProvider>) -> Self {
+        self.fallback = Some(fallback);
+        self
+    }
+}
+
 #[async_trait]
-impl EmbedProvider for ResilientChatProvider {
+impl EmbedProvider for ResilientEmbedProvider {
     async fn embed(&self, texts: Vec<String>) -> Result<Vec<Vec<f32>>, EmbedError> {
         if let Some(fallback) = &self.fallback {
             return fallback.embed(texts).await;

@@ -14,6 +14,7 @@ anyhow = "1"
 secrecy = "0.8"
 backoff = { version = "0.4", features = ["tokio"] }
 thiserror = "1"
+tracing = "0.1"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }

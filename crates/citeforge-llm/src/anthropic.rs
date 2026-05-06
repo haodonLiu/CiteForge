@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use async_trait::async_trait;
-use citeforge_core::ports::{ChatProvider, EmbedProvider, ChatMessage, ChatError, EmbedError, ChatProviderFactory, EmbedProviderFactory, ProviderConfig};
+use citeforge_core::ports::{ChatProvider, EmbedProvider, ChatMessage, ChatError, EmbedError, ChatProviderFactory, ProviderConfig};
 use citeforge_core::error::CiteForgeError;
-use secrecy::SecretString;
+use secrecy::{SecretString, ExposeSecret};
 
 pub struct AnthropicProvider {
     api_key: SecretString,
@@ -56,7 +56,7 @@ impl ChatProvider for AnthropicProvider {
         });
 
         let resp = self.client.post(&url)
-            .header("x-api-key", self.api_key.as_str())
+            .header("x-api-key", self.api_key.expose_secret())
             .header("anthropic-version", "2023-06-01")
             .json(&body)
             .send()

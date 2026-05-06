@@ -12,9 +12,9 @@ impl AppFacade {
         Self { container }
     }
 
-    pub async fn run_task(&self, topic: String) -> anyhow::Result<String> {
+    pub async fn run_task(&self, topic: String, pdf_paths: Vec<String>) -> anyhow::Result<String> {
         let task_id = format!("task-{}", uuid::Uuid::new_v4());
-        let task = Task::new(task_id.clone(), topic);
+        let task = Task::new(task_id.clone(), topic.clone());
 
         self.container.db.save_task(&task).await?;
 
@@ -22,6 +22,8 @@ impl AppFacade {
             task_id.clone(),
             Arc::clone(&self.container),
             Arc::clone(&self.container.db),
+            topic,
+            pdf_paths,
         ).await;
 
         Ok(task_id)
@@ -31,7 +33,26 @@ impl AppFacade {
         self.container.db.get_task(task_id).await.map_err(|e| e.into())
     }
 
-    pub async fn resume_task(&self, workspace_path: &str) -> anyhow::Result<String> {
-        Ok(format!("resumed-{}", workspace_path))
+    pub async fn resume_task(&self, task_id: &str) -> anyhow::Result<String> {
+        let task = self.container.db.get_task(task_id).await
+            .map_err(|e| anyhow::anyhow!("task not found: {}", e))?;
+
+        match &task.state {
+            citeforge_core::entity::TaskState::Completed
+            | citeforge_core::entity::TaskState::Failed { .. } => {
+                return Err(anyhow::anyhow!("task is in terminal state: {:?}", task.state));
+            }
+            _ => {}
+        }
+
+        let _rx = TaskActor::spawn(
+            task.id.clone(),
+            Arc::clone(&self.container),
+            Arc::clone(&self.container.db),
+            task.topic.clone(),
+            Vec::new(),
+        ).await;
+
+        Ok(task.id)
     }
 }

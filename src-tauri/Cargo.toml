@@ -11,7 +11,7 @@ citeforge-pdf = { path = "../crates/citeforge-pdf" }
 citeforge-search = { path = "../crates/citeforge-search" }
 citeforge-workspace = { path = "../crates/citeforge-workspace" }
 citeforge-chroma = { path = "../crates/citeforge-chroma" }
-tauri = { version = "2", features = ["devtools"] }
+tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
@@ -29,6 +29,11 @@ backoff = { version = "0.4", features = ["tokio"] }
 serde_yaml = "0.9"
 rustls = "0.22"
 regex = "1"
+async-trait = "0.1"
+tokio-util = { version = "0.7", features = ["rt"] }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 # tauri-plugin-shell = "2"  # Removed - requires OpenSSL

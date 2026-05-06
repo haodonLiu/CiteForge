@@ -2,7 +2,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use citeforge_core::ports::{ChatProvider, EmbedProvider, ChatMessage, ChatError, EmbedError, ChatProviderFactory, EmbedProviderFactory, ProviderConfig};
 use citeforge_core::error::CiteForgeError;
-use secrecy::SecretString;
+use secrecy::{SecretString, ExposeSecret};
 
 pub struct OpenAIProvider {
     api_key: SecretString,
@@ -74,7 +74,7 @@ impl ChatProvider for OpenAIProvider {
         });
 
         let resp = self.client.post(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key.as_str()))
+            .header("Authorization", format!("Bearer {}", self.api_key.expose_secret()))
             .json(&body)
             .send()
             .await
@@ -111,7 +111,7 @@ impl EmbedProvider for OpenAIProvider {
         });
 
         let resp = self.client.post(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key.as_str()))
+            .header("Authorization", format!("Bearer {}", self.api_key.expose_secret()))
             .json(&body)
             .send()
             .await
@@ -124,24 +124,60 @@ impl EmbedProvider for OpenAIProvider {
         let result: serde_json::Value = resp.json().await
             .map_err(|e| EmbedError::Network(e.to_string()))?;
 
-        let embeddings: Vec<Vec<f32>> = result["data"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|item| {
-                item["embedding"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|v| v.as_f64().unwrap_or(0.0) as f32)
-                    .collect()
-            })
-            .collect();
-
-        Ok(embeddings)
+        parse_embeddings(&result)
     }
 
     fn supports_batch(&self) -> bool {
         true
+    }
+}
+
+fn parse_embeddings(result: &serde_json::Value) -> Result<Vec<Vec<f32>>, EmbedError> {
+    let data = result["data"]
+        .as_array()
+        .ok_or_else(|| EmbedError::Api("missing 'data' array in response".to_string()))?;
+
+    let embeddings: Vec<Vec<f32>> = data
+        .iter()
+        .map(|item| {
+            item["embedding"]
+                .as_array()
+                .ok_or_else(|| EmbedError::Api("missing 'embedding' in data item".to_string()))
+                .map(|arr| arr.iter().map(|v| v.as_f64().unwrap_or(0.0) as f32).collect())
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(embeddings)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_valid_embeddings() {
+        let json = serde_json::json!({
+            "data": [
+                {"embedding": [0.1, 0.2, 0.3]},
+                {"embedding": [0.4, 0.5, 0.6]}
+            ]
+        });
+        let result = parse_embeddings(&json).unwrap();
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], vec![0.1f32, 0.2, 0.3]);
+    }
+
+    #[test]
+    fn test_parse_missing_data_array() {
+        let json = serde_json::json!({});
+        assert!(parse_embeddings(&json).is_err());
+    }
+
+    #[test]
+    fn test_parse_missing_embedding_field() {
+        let json = serde_json::json!({
+            "data": [{"other": "field"}]
+        });
+        assert!(parse_embeddings(&json).is_err());
     }
 }

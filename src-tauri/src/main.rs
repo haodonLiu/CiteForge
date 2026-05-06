@@ -4,9 +4,15 @@ mod application;
 mod config;
 mod domain;
 mod presentation;
+mod agents;
+mod metrics;
+pub mod workspace {
+    pub use citeforge_workspace::*;
+}
 
 use application::AppContainer;
 use presentation::commands;
+use anyhow::Context;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]

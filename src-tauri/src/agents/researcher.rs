@@ -5,7 +5,6 @@ use crate::domain::agent::{Agent, AgentError};
 use crate::domain::execution_context::TaskExecutionContext;
 use crate::application::AppContainer;
 use citeforge_core::entity::LiteratureEntry;
-use citeforge_core::event::AgentType;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ResearcherInput {

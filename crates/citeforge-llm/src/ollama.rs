@@ -2,8 +2,6 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use citeforge_core::ports::{ChatProvider, EmbedProvider, ChatMessage, ChatError, EmbedError, ChatProviderFactory, EmbedProviderFactory, ProviderConfig};
 use citeforge_core::error::CiteForgeError;
-use secrecy::SecretString;
-
 pub struct OllamaProvider {
     base_url: String,
     model: String,
@@ -120,13 +118,7 @@ impl EmbedProvider for OllamaProvider {
             let result: serde_json::Value = resp.json().await
                 .map_err(|e| EmbedError::Network(e.to_string()))?;
 
-            let embedding: Vec<f32> = result["embedding"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|v| v.as_f64().unwrap_or(0.0) as f32)
-                .collect();
-
+            let embedding = parse_single_embedding(&result)?;
             embeddings.push(embedding);
         }
 
@@ -134,6 +126,31 @@ impl EmbedProvider for OllamaProvider {
     }
 
     fn supports_batch(&self) -> bool {
-        true
+        false
+    }
+}
+
+fn parse_single_embedding(result: &serde_json::Value) -> Result<Vec<f32>, EmbedError> {
+    result["embedding"]
+        .as_array()
+        .ok_or_else(|| EmbedError::Api("missing 'embedding' in response".to_string()))
+        .map(|arr| arr.iter().map(|v| v.as_f64().unwrap_or(0.0) as f32).collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_valid_embedding() {
+        let json = serde_json::json!({"embedding": [0.1, 0.2, 0.3]});
+        let result = parse_single_embedding(&json).unwrap();
+        assert_eq!(result, vec![0.1f32, 0.2, 0.3]);
+    }
+
+    #[test]
+    fn test_parse_missing_embedding() {
+        let json = serde_json::json!({});
+        assert!(parse_single_embedding(&json).is_err());
     }
 }

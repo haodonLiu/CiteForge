@@ -75,8 +75,10 @@ impl Agent for AnalystAgent {
 
         Ok(AnalystOutput { themes, trends, gaps })
     }
+}
 
-    fn parse_themes(&self, response: &str, entries: &[LiteratureEntry]) -> Vec<Theme> {
+impl AnalystAgent {
+    fn parse_themes(&self, _response: &str, entries: &[LiteratureEntry]) -> Vec<Theme> {
         // Simplified theme extraction - in production would use proper JSON parsing
         let mut themes = Vec::new();
 

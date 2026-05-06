@@ -1,5 +1,6 @@
 use async_trait::async_trait;
-use citeforge_core::ports::{DocumentParser, ParserError, ParsedDocument, Page, DocumentMetadata};
+use citeforge_core::ports::{DocumentParser, ParserError, ParsedDocument, Page};
+use citeforge_core::value_object::DocumentMetadata;
 use lopdf::Document;
 
 #[derive(Debug)]
@@ -31,7 +32,7 @@ impl DocumentParser for PdfParser {
                         reason: "empty text".to_string(),
                     });
                 }
-                Err(e) => {
+                Err(_e) => {
                     warnings.push(ParseWarning::CorruptedPageSkipped {
                         page: *page_num as usize,
                     });
@@ -53,13 +54,14 @@ impl PdfParser {
         let title = doc.trailer.get(b"Title")
             .ok()
             .and_then(|v| v.as_string().ok())
-            .and_then(|s| String::from_utf8(s.to_vec()).ok());
+            .map(|s| s.into_owned());
 
         Some(DocumentMetadata {
             title,
             authors: Vec::new(),
             doi: None,
             year: None,
+            venue: None,
         })
     }
 }
