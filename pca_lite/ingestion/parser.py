@@ -2,6 +2,8 @@
 import json
 from pathlib import Path
 
+from pca_lite.core.exceptions import ExtractionError
+
 
 def extract_pdf_text(pdf_path: Path, output_dir: Path) -> Path:
     """Extract text from a PDF file, output as JSON Lines.
@@ -59,7 +61,7 @@ def extract_all_pdfs(pdf_dir: Path, output_dir: Path) -> list[Path]:
         try:
             out = extract_pdf_text(pdf_path, output_dir)
             outputs.append(out)
-        except Exception as e:
+        except (ExtractionError, OSError) as e:
             print(f"[WARN] Failed to extract {pdf_path.name}: {e}")
 
     return outputs

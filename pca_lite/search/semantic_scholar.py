@@ -2,6 +2,8 @@
 import httpx
 from typing import Any
 
+from pca_lite.core.exceptions import SearchError
+
 
 class SemanticScholarSearch:
     """Search provider backed by Semantic Scholar Graph API."""
@@ -58,11 +60,9 @@ class SemanticScholarSearch:
                 papers.append(paper)
             return papers
         except httpx.HTTPStatusError as e:
-            print(f"[WARN] Semantic Scholar HTTP error: {e}")
-            return []
+            raise SearchError(f"Semantic Scholar HTTP error: {e.response.status_code}") from e
         except httpx.RequestError as e:
-            print(f"[WARN] Semantic Scholar request failed: {e}")
-            return []
+            raise SearchError(f"Semantic Scholar request failed: {e}") from e
 
     def _parse_paper(self, hit: dict) -> dict[str, Any]:
         author_names = [

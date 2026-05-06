@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from pca_lite.core.exceptions import LLMError, SearchError
 from pca_lite.core.models import LiteratureEntry
 from pca_lite.llm.base import BaseProvider
 
@@ -69,7 +70,7 @@ class ResearcherAgent:
                 return "failed"
             else:
                 return "pending"
-        except Exception:
+        except LLMError:
             return "pending"
 
     async def supplement_from_web(self, query: str, max_results: int = 10) -> list[dict]:
@@ -88,7 +89,7 @@ class ResearcherAgent:
         try:
             results = await self.search.search(query, max_results=max_results)
             return results
-        except Exception as e:
+        except SearchError as e:
             print(f"[WARN] Web search failed: {e}")
             return []
 

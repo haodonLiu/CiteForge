@@ -1,4 +1,5 @@
 """Writer Agent - write structured literature review drafts."""
+from pca_lite.core.exceptions import LLMError
 from pca_lite.core.models import LiteratureEntry
 from pca_lite.llm.base import BaseProvider
 
@@ -36,7 +37,7 @@ class WriterAgent:
                 "content": draft_md,
                 "status": "draft",
             }
-        except Exception as e:
+        except LLMError as e:
             return {
                 "agent": "writer",
                 "action": "draft",

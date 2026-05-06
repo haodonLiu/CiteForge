@@ -1,4 +1,5 @@
 """Reranker backed by cross-encoder or local model."""
+from pca_lite.core.exceptions import LLMError
 from pca_lite.llm.providers.ollama import OllamaProvider
 from pca_lite.llm.providers.openai import OpenAIProvider
 
@@ -58,7 +59,7 @@ class RerankerModel:
             if top_k is not None:
                 ranked = ranked[:top_k]
             return ranked
-        except Exception as e:
+        except LLMError as e:
             print(f"[WARN] Reranking failed, returning uniform scores: {e}")
             return [(i, 1.0 / max(len(docs), 1)) for i in range(len(docs))]
 

@@ -1,5 +1,8 @@
 """Analyst Agent - analyze literature for themes, findings, and gaps."""
 import asyncio
+import json
+
+from pca_lite.core.exceptions import LLMError
 from pca_lite.core.models import LiteratureEntry
 from pca_lite.llm.base import BaseProvider
 
@@ -56,7 +59,7 @@ class AnalystAgent:
 
             result = json.loads(response)
             return result.get("themes", [])
-        except Exception as e:
+        except (LLMError, json.JSONDecodeError) as e:
             print(f"[WARN] Theme clustering failed: {e}")
             return []
 
@@ -97,7 +100,7 @@ class AnalystAgent:
             import json
 
             return json.loads(response)
-        except Exception:
+        except (LLMError, json.JSONDecodeError):
             return []
 
     async def _identify_gaps(self, entries: list[LiteratureEntry]) -> list[str]:
@@ -115,5 +118,5 @@ class AnalystAgent:
             import json
 
             return json.loads(response)
-        except Exception:
+        except (LLMError, json.JSONDecodeError):
             return []

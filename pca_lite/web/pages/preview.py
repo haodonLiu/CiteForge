@@ -44,7 +44,7 @@ def render() -> None:
                         file_name="references.bib",
                         mime="application/x-bibtex",
                     )
-                except Exception as e:
+                except OSError as e:
                     st.error(f"BibTeX 导出失败: {e}")
 
         st.divider()

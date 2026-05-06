@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 from pca_lite.core.consts import FILE_DRAFT, FILE_LITERATURE_POOL, FILE_STATE
+from pca_lite.core.exceptions import PipelineError
 from pca_lite.core.models import TaskPlan, Step, Sources, Constraints, State
 from pca_lite.core.enums import AgentType
 from pca_lite.workspace.manager import WorkspaceManager
@@ -86,7 +87,7 @@ class OrchestratorEngine:
             state.completed_steps.append(step.id)
             state.timestamp = datetime.now().isoformat()
             self.workspace.write_json(FILE_STATE, state)
-        except Exception as e:
+        except PipelineError as e:
             retry_count = state.retry_counts.get(step.id, 0) + 1
             state.retry_counts[step.id] = retry_count
             if retry_count <= plan.constraints.max_retry:
@@ -122,7 +123,7 @@ class OrchestratorEngine:
                 step = futures[future]
                 try:
                     future.result()
-                except Exception as e:
+                except PipelineError as e:
                     all_success = False
                     print(f"[FAIL] Parallel step {step.id} failed: {e}")
 

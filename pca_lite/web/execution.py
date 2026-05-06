@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from pca_lite.core.consts import DIR_RAW_PDFS, DIR_PREPROCESSED, FILE_DRAFT, FILE_LITERATURE_POOL, FILE_STATE, FILE_THEMES
+from pca_lite.core.exceptions import PipelineError
 from pca_lite.core.models import LiteratureEntry
 from pca_lite.llm.providers.openai import OpenAIProvider
 from pca_lite.llm.providers.anthropic import AnthropicProvider
@@ -80,7 +81,7 @@ class ExecutionRunner:
                 completed = existing_state.get("completed_steps", [])
             except FileNotFoundError:
                 completed = []
-            except Exception:
+            except (OSError, ValueError):
                 completed = []
 
             if step.id in completed:
@@ -119,7 +120,7 @@ class ExecutionRunner:
             except Exception as e:
                 if callback:
                     callback({"phase": "step_failed", "step": step.id, "error": str(e)})
-                raise
+                raise PipelineError(f"Step {step.id} failed: {e}") from e
 
         if callback:
             callback({"phase": "all_completed", "steps": plan.steps})

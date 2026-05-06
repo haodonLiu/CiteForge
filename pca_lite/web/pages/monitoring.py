@@ -5,6 +5,7 @@ from pathlib import Path
 import streamlit as st
 
 from pca_lite.core.consts import FILE_DRAFT, FILE_LITERATURE_POOL, FILE_STATE
+from pca_lite.core.exceptions import PipelineError
 
 
 def render() -> None:
@@ -57,7 +58,7 @@ def render() -> None:
                     workspace_dir=WORKSPACE_DIR,
                     callback=callback,
                 )
-            except Exception as e:
+            except PipelineError as e:
                 st.session_state["execution_log"].append({"phase": "error", "msg": str(e)})
                 st.session_state["execution_active"] = False
                 st.rerun()

@@ -1,6 +1,7 @@
 """L1/L2 auto-summary generation using lightweight LLM."""
 import asyncio
 
+from pca_lite.core.exceptions import LLMError
 from pca_lite.llm.base import BaseProvider
 
 
@@ -51,7 +52,7 @@ class SummarizerModel:
             messages = [{"role": "user", "content": prompt}]
             result = await self.llm.chat(messages)
             return str(result).strip()
-        except Exception as e:
+        except LLMError as e:
             print(f"[WARN] L1 summary failed: {e}")
             return "[summary generation failed]"
 
@@ -66,7 +67,7 @@ class SummarizerModel:
             messages = [{"role": "user", "content": prompt}]
             result = await self.llm.chat(messages)
             return str(result).strip()
-        except Exception as e:
+        except LLMError as e:
             print(f"[WARN] L2 summary failed: {e}")
             return "[summary generation failed]"
 
