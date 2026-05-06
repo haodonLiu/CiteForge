@@ -33,6 +33,7 @@
 | 文本分块 (chunking) | ✅ | `pca_lite/ingestion/splitter.py` |
 | 向量化索引 (Chroma) | ✅ | `pca_lite/retrieval/vector_store.py` |
 | 本地 Embedding 模型封装 | ✅ | `pca_lite/llm/embedding.py` |
+| L1/L2 自动摘要 | ✅ | `pca_lite/ingestion/summarizer.py` |
 
 ### Agent
 
@@ -68,7 +69,6 @@
 
 | 功能 | 状态 | 文件 |
 |------|------|------|
-| L1/L2 自动摘要 | ✅ | `pca_lite/ingestion/summarizer.py` |
 | 质量评分 (relevance_score) | ✅ | `pca_lite/retrieval/scorer.py` |
 | 去重 + 粗聚类 | ✅ | `pca_lite/ingestion/dedup.py` |
 | 并行执行 (parallel_group) | ✅ | `pca_lite/orchestrator/engine.py` |
@@ -98,10 +98,11 @@
 - [x] 添加 `pca_lite/retrieval/` 目录结构 ✅
 - [x] 添加 `pca_lite/prompts/` Jinja2 模板（Agent System Prompts）✅
 - [x] 添加 `pca_lite/search/` 目录结构（Web Search provider）✅
-- [x] 添加单元测试（tests/test_scorer.py）✅ 部分完成
-- [ ] 完善 `cli/app.py` 的 error handling（目前大部分异常直接抛出）
+- [x] 添加 `pca_lite/export/` 目录结构（BibTeX 导出）✅
+- [x] 添加单元测试（tests/test_scorer.py）✅
+- [x] 完善 `cli/app.py` 的 error handling ✅
+- [x] `interactive_setup()` 支持环境变量引用 ✅
+- [x] 添加 BibTeX 导出功能 ✅
 - [ ] 配置 pydantic-settings BaseSettings 的 yaml_file 路径处理
-- [ ] `interactive_setup()` 写入 yaml 后 key 是明文，需加密或用环境变量引用
-- [ ] 添加 BibTeX 导出功能 (preview page)
 - [ ] 添加真实执行触发器（Web UI 中调用 OrchestratorEngine）
 - [ ] 集成测试（end-to-end）
