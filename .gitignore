@@ -25,3 +25,5 @@ __pycache__/
 .ttkbootstrap-cache/
 config.yaml
 .worktrees/
+target/
+src-tauri/gen/
