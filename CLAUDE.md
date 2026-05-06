@@ -44,15 +44,40 @@ python -m pca_lite config init         # Interactive config setup
 
 ```
 pca_lite/
-├── cli/           # Typer entry
-├── core/          # Pydantic models + enums
-├── orchestrator/  # State machine
-├── workspace/     # Shared workspace manager
-config.yaml       # Config template
+├── cli/           # Typer CLI entry (run, config commands)
+├── core/          # Pydantic models, enums, exceptions, constants
+├── orchestrator/  # State machine engine (execute_plan, resume)
+├── workspace/     # WorkspaceManager (init, read/write JSON, SHA-256 integrity)
+├── agents/        # Researcher, Analyst, Writer agent implementations
+├── ingestion/     # PDF parsing, metadata extraction, deduplication, summarization
+├── retrieval/     # Hybrid search, vector store, reranker, scoring
+├── llm/           # LLM base client, embedding model wrapper
+├── search/        # Semantic Scholar API integration
+├── export/        # BibTeX export
+├── web/           # Streamlit Web UI (pages/, components/, locales/)
+config.yaml        # Config template
 pyproject.toml
-prompts/           # Design docs
-docs/             # Specs + plans
+tests/
+├── core/
+├── workspace/
 ```
+
+## Test Commands
+
+```bash
+pytest                    # Run all tests
+pytest tests/core/        # Core module tests
+pytest tests/workspace/   # Workspace tests
+pytest tests/test_bibtex.py -v   # Single test file
+```
+
+## Module Details
+
+- **agents/**: Three roles — Researcher (verify + search), Analyst (cluster + validate), Writer (draft + cite). Communicate via shared workspace JSON files.
+- **ingestion/**: PDF parsing (PyMuPDF), metadata extraction, deduplication, text splitting, summarization.
+- **retrieval/**: Hybrid search combining dense vectors + sparse keywords, reranking with cross-encoders, score fusion.
+- **llm/**: HTTP-based LLM client (OpenAI-compatible), local embedding models (sentence-transformers).
+- **web/**: Streamlit multi-page app — home, config, documents, preview, monitoring. Supports i18n (zh/en).
 
 ## Critical Constraints
 
