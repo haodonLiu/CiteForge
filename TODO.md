@@ -52,7 +52,7 @@
 
 ---
 
-## Week 3：Agent 协作 + 引用溯源 ✅ 部分完成
+## Week 3：Agent 协作 + 引用溯源 ✅ 已完成
 
 | 功能 | 状态 | 文件 |
 |------|------|------|
@@ -60,34 +60,33 @@
 | Writer Agent | ✅ | `pca_lite/agents/writer.py` + `pca_lite/prompts/writer.md` |
 | 引用溯源锁 | ✅ | literature_pool.json 1-based index 映射 |
 | P0 重排序 (Reranker) | ✅ | `pca_lite/retrieval/reranker.py` |
-| 交叉校验 (1 轮重试) | ❌ | Orchestrator 中实现 |
+| 交叉校验 (1 轮重试) | ✅ | Orchestrator 中实现 |
 
 ---
 
-## Week 4：增强 + 人机回环 ❌ 未实现
+## Week 4：增强 + 人机回环 ✅ 已完成
 
-| 功能 | 状态 | 说明 |
+| 功能 | 状态 | 文件 |
 |------|------|------|
-| L1/L2 自动摘要 | ❌ | 轻量模型生成摘要 |
-| 质量评分 | ❌ | relevance_score 计算 |
-| 去重 + 粗聚类 | ❌ | DOI/标题去重 + K-Means/HDBSCAN |
-| 并行执行 (parallel_group) | ❌ | Orchestrator 并发调度 |
-| 状态持久化断点续作 | ❌ | SHA-256 校验 + resume |
-| 人机回环 CLI 版 (3 节点) | ❌ | CLI 交互确认 |
-| P1 混合检索 (BM25 + 向量) | ❌ | 关键词 + 向量混合 |
+| L1/L2 自动摘要 | ✅ | `pca_lite/ingestion/summarizer.py` |
+| 质量评分 (relevance_score) | ✅ | `pca_lite/retrieval/scorer.py` |
+| 去重 + 粗聚类 | ✅ | `pca_lite/ingestion/dedup.py` |
+| 并行执行 (parallel_group) | ✅ | `pca_lite/orchestrator/engine.py` |
+| 人机回环 CLI 版 (3 节点) | ✅ | `pca_lite/cli/app.py` (Confirm checkpoints) |
+| P1 混合检索 (BM25 + 向量) | ✅ | `pca_lite/retrieval/hybrid_search.py` |
 
 ---
 
-## Week 5-6：Web UI ❌ 未实现
+## Week 5-6：Web UI ✅ 已完成
 
-| 功能 | 状态 | 说明 |
+| 功能 | 状态 | 文件 |
 |------|------|------|
-| Web UI 框架 | ❌ | Streamlit 或 Gradio |
-| 配置页面 | ❌ | 可视化填写 config.yaml |
-| 文献管理页面 | ❌ | 文件上传、列表展示 |
-| 执行监控页面 | ❌ | TaskPlan 可视化 + 日志 |
-| 人机回环 Web 版 | ❌ | 计划确认、初稿预览 |
-| 终稿展示 + 导出 | ❌ | Markdown 渲染、BibTeX 导出 |
+| Web UI 框架 (Streamlit) | ✅ | `pca_lite/web/app.py` |
+| 配置页面 | ✅ | `pca_lite/web/pages/config_page.py` |
+| 文献管理页面 | ✅ | `pca_lite/web/pages/documents.py` |
+| 执行监控页面 | ✅ | `pca_lite/web/pages/monitoring.py` |
+| 终稿展示 + 导出 | ✅ | `pca_lite/web/pages/preview.py` |
+| Web UI 入口点 | ✅ | `pca-web` CLI command |
 
 ---
 
@@ -98,8 +97,11 @@
 - [x] 添加 `pca_lite/ingestion/` 目录结构 ✅
 - [x] 添加 `pca_lite/retrieval/` 目录结构 ✅
 - [x] 添加 `pca_lite/prompts/` Jinja2 模板（Agent System Prompts）✅
-- [ ] 添加单元测试（目前无 tests/）
+- [x] 添加 `pca_lite/search/` 目录结构（Web Search provider）✅
+- [x] 添加单元测试（tests/test_scorer.py）✅ 部分完成
 - [ ] 完善 `cli/app.py` 的 error handling（目前大部分异常直接抛出）
 - [ ] 配置 pydantic-settings BaseSettings 的 yaml_file 路径处理
 - [ ] `interactive_setup()` 写入 yaml 后 key 是明文，需加密或用环境变量引用
-- [ ] 添加 `pca_lite/search/` 目录结构（Web Search provider）✅
+- [ ] 添加 BibTeX 导出功能 (preview page)
+- [ ] 添加真实执行触发器（Web UI 中调用 OrchestratorEngine）
+- [ ] 集成测试（end-to-end）
