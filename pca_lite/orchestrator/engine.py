@@ -2,6 +2,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
+from pca_lite.core.consts import FILE_DRAFT, FILE_LITERATURE_POOL, FILE_STATE
 from pca_lite.core.models import TaskPlan, Step, Sources, Constraints, State
 from pca_lite.core.enums import AgentType
 from pca_lite.workspace.manager import WorkspaceManager
@@ -26,7 +27,7 @@ class OrchestratorEngine:
                     task="初始化工作区",
                     tools=[],
                     input_from=[],
-                    output="state.json",
+                    output=FILE_STATE,
                 ),
                 Step(
                     id="step_1",
@@ -34,7 +35,7 @@ class OrchestratorEngine:
                     task="文献检索与校验（Week 1 stub）",
                     tools=[],
                     input_from=["step_0"],
-                    output="literature_pool.json",
+                    output=FILE_LITERATURE_POOL,
                 ),
                 Step(
                     id="step_2",
@@ -42,13 +43,13 @@ class OrchestratorEngine:
                     task="综述撰写（Week 1 stub）",
                     tools=[],
                     input_from=["step_1"],
-                    output="draft.md",
+                    output=FILE_DRAFT,
                 ),
             ],
         )
 
     def execute_plan(self, plan: TaskPlan) -> State:
-        state_dict = self.workspace.read_json("state.json")
+        state_dict = self.workspace.read_json(FILE_STATE)
         state = State.model_validate(state_dict)
 
         groups: dict[str | None, list[Step]] = {}
@@ -78,24 +79,24 @@ class OrchestratorEngine:
 
         state.current_step = step.id
         state.timestamp = datetime.now().isoformat()
-        self.workspace.write_json("state.json", state)
+        self.workspace.write_json(FILE_STATE, state)
 
         try:
             self.execute_step(step)
             state.completed_steps.append(step.id)
             state.timestamp = datetime.now().isoformat()
-            self.workspace.write_json("state.json", state)
+            self.workspace.write_json(FILE_STATE, state)
         except Exception as e:
             retry_count = state.retry_counts.get(step.id, 0) + 1
             state.retry_counts[step.id] = retry_count
             if retry_count <= plan.constraints.max_retry:
                 print(f"[RETRY] 步骤 {step.id} 失败，重试 ({retry_count}/{plan.constraints.max_retry})")
                 state.timestamp = datetime.now().isoformat()
-                self.workspace.write_json("state.json", state)
+                self.workspace.write_json(FILE_STATE, state)
             else:
                 print(f"[FAIL] 步骤 {step.id} 超过最大重试次数")
                 state.completed_steps.append(step.id)
-                self.workspace.write_json("state.json", state)
+                self.workspace.write_json(FILE_STATE, state)
 
     def _execute_parallel_group(
         self, steps: list[Step], state: State, plan: TaskPlan
@@ -109,7 +110,7 @@ class OrchestratorEngine:
 
         state.current_step = ",".join(s.id for s in steps)
         state.timestamp = datetime.now().isoformat()
-        self.workspace.write_json("state.json", state)
+        self.workspace.write_json(FILE_STATE, state)
 
         with ThreadPoolExecutor(max_workers=min(len(steps), self.max_workers)) as executor:
             futures = {
@@ -130,7 +131,7 @@ class OrchestratorEngine:
                 state.completed_steps.append(step.id)
 
         state.timestamp = datetime.now().isoformat()
-        self.workspace.write_json("state.json", state)
+        self.workspace.write_json(FILE_STATE, state)
 
     def _run_step_safe(self, step: Step) -> None:
         self.execute_step(step)
@@ -141,7 +142,7 @@ class OrchestratorEngine:
         return {}
 
     def resume(self) -> State:
-        state_dict = self.workspace.read_json("state.json")
+        state_dict = self.workspace.read_json(FILE_STATE)
         state = State.model_validate(state_dict)
         tampered = self.workspace.verify_integrity(state)
         if tampered:

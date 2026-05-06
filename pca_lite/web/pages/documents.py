@@ -4,6 +4,8 @@ from pathlib import Path
 
 import streamlit as st
 
+from pca_lite.core.consts import DIR_RAW_PDFS, FILE_LITERATURE_POOL
+
 WORKSPACE_DIR = Path.home() / ".pca" / "workspace"
 
 
@@ -19,7 +21,7 @@ def render() -> None:
         )
         if uploaded:
             WORKSPACE_DIR.mkdir(parents=True, exist_ok=True)
-            raw_dir = WORKSPACE_DIR / "raw_pdfs"
+            raw_dir = WORKSPACE_DIR / DIR_RAW_PDFS
             raw_dir.mkdir(exist_ok=True)
             for f in uploaded:
                 dest = raw_dir / f.name
@@ -37,7 +39,7 @@ def render() -> None:
             st.info("搜索功能需要 Semantic Scholar API key，请在配置页面填写。")
 
     with tab_list:
-        pool_path = WORKSPACE_DIR / "literature_pool.json"
+        pool_path = WORKSPACE_DIR / FILE_LITERATURE_POOL
         if pool_path.exists():
             with open(pool_path) as f:
                 data = json.load(f)

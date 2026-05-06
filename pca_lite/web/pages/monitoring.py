@@ -4,13 +4,15 @@ from pathlib import Path
 
 import streamlit as st
 
+from pca_lite.core.consts import FILE_DRAFT, FILE_LITERATURE_POOL, FILE_STATE
+
 
 def render() -> None:
     st.header("🚀 执行监控")
 
     WORKSPACE_DIR = Path.home() / ".pca" / "workspace"
-    state_path = WORKSPACE_DIR / "state.json"
-    pool_path = WORKSPACE_DIR / "literature_pool.json"
+    state_path = WORKSPACE_DIR / FILE_STATE
+    pool_path = WORKSPACE_DIR / FILE_LITERATURE_POOL
 
     # Load topic from documents page session state
     topic = st.session_state.get("execution_topic", "")
@@ -136,7 +138,7 @@ def render() -> None:
     st.subheader("快捷操作")
     c1, c2 = st.columns(2)
     if c1.button("📂 查看 draft.md"):
-        draft = WORKSPACE_DIR / "draft.md"
+        draft = WORKSPACE_DIR / FILE_DRAFT
         if draft.exists():
             st.code(draft.read_text(encoding="utf-8")[:1000], language="markdown")
         else:

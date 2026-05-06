@@ -1,5 +1,6 @@
 """Hybrid search combining BM25 keyword matching with vector similarity."""
 import math
+from collections import Counter
 from pca_lite.retrieval.vector_store import VectorStore
 
 

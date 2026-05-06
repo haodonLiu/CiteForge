@@ -3,6 +3,7 @@ import asyncio
 from datetime import datetime
 from pathlib import Path
 
+from pca_lite.core.consts import DIR_RAW_PDFS, DIR_PREPROCESSED, FILE_DRAFT, FILE_LITERATURE_POOL, FILE_STATE, FILE_THEMES
 from pca_lite.core.models import LiteratureEntry
 from pca_lite.llm.providers.openai import OpenAIProvider
 from pca_lite.llm.providers.anthropic import AnthropicProvider
@@ -75,7 +76,7 @@ class ExecutionRunner:
         for step in plan.steps:
             # Load existing state for resume
             try:
-                existing_state = ws.read_json("state.json")
+                existing_state = ws.read_json(FILE_STATE)
                 completed = existing_state.get("completed_steps", [])
             except FileNotFoundError:
                 completed = []
@@ -95,7 +96,7 @@ class ExecutionRunner:
                 "workspace_files": {},
                 "timestamp": datetime.now().isoformat(),
             }
-            ws.write_json("state.json", state)
+            ws.write_json(FILE_STATE, state)
 
             if callback:
                 callback({"phase": "step_started", "step": step.id})
@@ -107,7 +108,7 @@ class ExecutionRunner:
 
                 # Mark step as completed and persist SHA-256
                 completed = completed + [step.id]
-                ws.write_json("state.json", {
+                ws.write_json(FILE_STATE, {
                     "plan_version": "1.0",
                     "current_step": step.id,
                     "completed_steps": completed,
@@ -141,11 +142,11 @@ class ExecutionRunner:
 
         elif step.agent == AgentType.RESEARCHER:
             from pca_lite.ingestion.parser import extract_all_pdfs
-            raw_dir = ws.workspace_dir / "raw_pdfs"
+            raw_dir = ws.workspace_dir / DIR_RAW_PDFS
             if raw_dir.exists():
                 pdfs = list(raw_dir.glob("*.pdf"))
                 if pdfs:
-                    outputs = extract_all_pdfs(raw_dir, ws.workspace_dir / "preprocessed")
+                    outputs = extract_all_pdfs(raw_dir, ws.workspace_dir / DIR_PREPROCESSED)
                     pool = []
                     n = min(len(outputs), len(pdfs))
                     for i in range(n):
@@ -159,7 +160,7 @@ class ExecutionRunner:
                     literature_pool = pool
 
             verification = await researcher.verify_literature_pool(literature_pool)
-            ws.write_json("literature_pool.json", {
+            ws.write_json(FILE_LITERATURE_POOL, {
                 "entries": verification.get("verified", []) + verification.get("pending", []),
                 "verification_summary": {
                     "verified": len(verification.get("verified", [])),
@@ -170,21 +171,21 @@ class ExecutionRunner:
             return verification
 
         elif step.agent == AgentType.ANALYST:
-            verified = ws.read_json("literature_pool.json").get("entries", [])
+            verified = ws.read_json(FILE_LITERATURE_POOL).get("entries", [])
             entries = [LiteratureEntry.model_validate(e) for e in verified[:10]]
             analysis = await analyst.run(entries)
-            ws.write_json("themes.json", analysis)
+            ws.write_json(FILE_THEMES, analysis)
             return analysis
 
         elif step.agent == AgentType.WRITER:
-            pool_data = ws.read_json("literature_pool.json")
-            themes_data = ws.read_json("themes.json")
+            pool_data = ws.read_json(FILE_LITERATURE_POOL)
+            themes_data = ws.read_json(FILE_THEMES)
             themes = themes_data.get("analysis", {}).get("themes", themes_data.get("themes", []))
             pool_entries = [LiteratureEntry.model_validate(e) for e in pool_data.get("entries", [])]
             topics = [topic]
             draft = await writer.run(themes, pool_entries, topics)
             content = draft.get("content", "# 综述草稿\n\n尚未生成内容。")
-            (ws.workspace_dir / "draft.md").write_text(content, encoding="utf-8")
+            (ws.workspace_dir / FILE_DRAFT).write_text(content, encoding="utf-8")
             return draft
 
         return {}

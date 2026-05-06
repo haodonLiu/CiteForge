@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any
 
 import httpx
@@ -32,20 +31,14 @@ class OllamaProvider(BaseProvider):
         url = f"{self.base_url}/api/chat"
         body = {"model": self.model, "messages": messages, **kwargs}
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            delay = self.initial_delay
-            for attempt in range(1, self.max_attempts + 1):
-                try:
-                    resp = await client.post(url, json=body)
-                    resp.raise_for_status()
-                    data = resp.json()
-                    return data["message"]["content"]
-                except (httpx.HTTPStatusError, httpx.RequestError) as e:
-                    if attempt == self.max_attempts:
-                        raise
+        async def _request() -> str:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                resp = await client.post(url, json=body)
+                resp.raise_for_status()
+                data = resp.json()
+                return data["message"]["content"]
 
-                await self._sleep(delay)
-                delay = min(delay * 2, self.max_delay) if self.backoff == "exponential" else delay
+        return await self._retry(_request)
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         url = f"{self.base_url}/api/embeddings"
@@ -67,6 +60,3 @@ class OllamaProvider(BaseProvider):
             resp.raise_for_status()
             data = resp.json()
             return [item["relevance_score"] for item in data["results"]]
-
-    async def _sleep(self, delay: float) -> None:
-        await asyncio.sleep(delay)

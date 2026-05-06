@@ -8,6 +8,8 @@ import typer
 import yaml
 from rich.console import Console
 from rich.panel import Panel
+
+from pca_lite.core.consts import DIR_RAW_PDFS, FILE_DRAFT, FILE_LITERATURE_POOL
 from rich.prompt import Confirm
 from rich.table import Table
 
@@ -186,7 +188,7 @@ def run(
                 raise typer.Exit(1)
 
             # Copy PDF files to workspace raw_pdfs/
-            raw_dir = ws.workspace_dir / "raw_pdfs"
+            raw_dir = ws.workspace_dir / DIR_RAW_PDFS
             for f in files:
                 f = Path(f).expanduser().resolve()
                 if not f.exists():
@@ -240,7 +242,7 @@ def run(
 
             if "step_1" in state.completed_steps and not skip_human_in_loop:
                 try:
-                    pool = ws.read_json("literature_pool.json")
+                    pool = ws.read_json(FILE_LITERATURE_POOL)
                     entries = pool.get("entries", pool) if isinstance(pool, dict) else []
                     console.print(Panel(
                         f"[bold]文献池大小:[/bold] {len(entries)}\n"
@@ -259,7 +261,7 @@ def run(
             console.print(f"[green]完成，已执行步骤: {state.completed_steps}[/green]")
 
             if not skip_human_in_loop:
-                draft_path = ws.workspace_dir / "draft.md"
+                draft_path = ws.workspace_dir / FILE_DRAFT
                 if draft_path.exists():
                     try:
                         confirmed = Confirm.ask(

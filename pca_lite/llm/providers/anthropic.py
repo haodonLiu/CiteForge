@@ -1,4 +1,3 @@
-import time
 from typing import Any
 
 import httpx
@@ -35,7 +34,6 @@ class AnthropicProvider(BaseProvider):
             "Content-Type": "application/json",
         }
 
-        # Convert messages to Anthropic format
         system_msg = next((m["content"] for m in messages if m["role"] == "system"), None)
         filtered = [m for m in messages if m["role"] != "system"]
         anthropic_messages = [{"role": m["role"], "content": m["content"]} for m in filtered]
@@ -48,31 +46,17 @@ class AnthropicProvider(BaseProvider):
         if system_msg:
             body["system"] = system_msg
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            delay = self.initial_delay
-            for attempt in range(1, self.max_attempts + 1):
-                try:
-                    resp = await client.post(url, headers=headers, json=body)
-                    resp.raise_for_status()
-                    data = resp.json()
-                    return data["content"][0]["text"]
-                except httpx.HTTPStatusError as e:
-                    if e.response.status_code < 500:
-                        raise
-                    if attempt == self.max_attempts:
-                        raise
-                except httpx.RequestError as e:
-                    if attempt == self.max_attempts:
-                        raise
+        async def _request() -> str:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                resp = await client.post(url, headers=headers, json=body)
+                resp.raise_for_status()
+                data = resp.json()
+                return data["content"][0]["text"]
 
-                await self._sleep(delay)
-                delay = min(delay * 2, self.max_delay) if self.backoff == "exponential" else delay
+        return await self._retry(_request)
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         raise NotImplementedError("Anthropic does not provide embedding endpoints. Use OpenAI or local embeddings.")
 
     async def rerank(self, query: str, docs: list[str]) -> list[float]:
         raise NotImplementedError("Anthropic does not provide a rerank endpoint.")
-
-    async def _sleep(self, delay: float) -> None:
-        time.sleep(delay)

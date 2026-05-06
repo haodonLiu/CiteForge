@@ -3,8 +3,10 @@ from pathlib import Path
 
 import streamlit as st
 
+from pca_lite.core.consts import FILE_DRAFT, FILE_LITERATURE_POOL
+
 WORKSPACE_DIR = Path.home() / ".pca" / "workspace"
-DRAFT_PATH = WORKSPACE_DIR / "draft.md"
+DRAFT_PATH = WORKSPACE_DIR / FILE_DRAFT
 
 
 def render() -> None:
@@ -31,7 +33,7 @@ def render() -> None:
                     mime="text/markdown",
                 )
         with col2:
-            pool_path = WORKSPACE_DIR / "literature_pool.json"
+            pool_path = WORKSPACE_DIR / FILE_LITERATURE_POOL
             if st.button("📦 导出 BibTeX") and pool_path.exists():
                 try:
                     from pca_lite.export.bibtex import export_literature_pool
@@ -49,7 +51,7 @@ def render() -> None:
         st.subheader("引用检查")
         import re
         citations = re.findall(r"\[(\d+(?:-\d+)?)\]", content)
-        pool_path = WORKSPACE_DIR / "literature_pool.json"
+        pool_path = WORKSPACE_DIR / FILE_LITERATURE_POOL
         if pool_path.exists():
             import json
             with open(pool_path) as f:

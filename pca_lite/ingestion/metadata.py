@@ -1,21 +1,17 @@
 """Metadata extraction from PDF text using regex patterns."""
 import re
-from dataclasses import dataclass
-from datetime import datetime
+from pydantic import BaseModel, Field, ConfigDict
 
 
-@dataclass
-class PaperMetadata:
+class PaperMetadata(BaseModel):
+    model_config = ConfigDict(strict=True)
+
     title: str = ""
-    authors: list[str] = None
+    authors: list[str] = Field(default_factory=list)
     year: int | None = None
     doi: str = ""
     arxiv_id: str = ""
     venue: str = ""
-
-    def __post_init__(self):
-        if self.authors is None:
-            self.authors = []
 
 
 class MetadataExtractor:

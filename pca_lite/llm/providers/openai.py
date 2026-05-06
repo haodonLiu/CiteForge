@@ -1,4 +1,3 @@
-import time
 from typing import Any
 
 import httpx
@@ -32,25 +31,14 @@ class OpenAIProvider(BaseProvider):
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         body = {"model": self.model, "messages": messages, **kwargs}
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            delay = self.initial_delay
-            for attempt in range(1, self.max_attempts + 1):
-                try:
-                    resp = await client.post(url, headers=headers, json=body)
-                    resp.raise_for_status()
-                    data = resp.json()
-                    return data["choices"][0]["message"]["content"]
-                except httpx.HTTPStatusError as e:
-                    if e.response.status_code < 500:
-                        raise
-                    if attempt == self.max_attempts:
-                        raise
-                except httpx.RequestError as e:
-                    if attempt == self.max_attempts:
-                        raise
+        async def _request() -> str:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                resp = await client.post(url, headers=headers, json=body)
+                resp.raise_for_status()
+                data = resp.json()
+                return data["choices"][0]["message"]["content"]
 
-                await self._sleep(delay)
-                delay = min(delay * 2, self.max_delay) if self.backoff == "exponential" else delay
+        return await self._retry(_request)
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         url = f"{self.base_url}/embeddings"
@@ -65,6 +53,3 @@ class OpenAIProvider(BaseProvider):
 
     async def rerank(self, query: str, docs: list[str]) -> list[float]:
         raise NotImplementedError("OpenAI does not provide a rerank endpoint. Use Cohere or local reranker.")
-
-    async def _sleep(self, delay: float) -> None:
-        time.sleep(delay)
