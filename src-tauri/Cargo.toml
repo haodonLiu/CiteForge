@@ -28,6 +28,7 @@ metrics-exporter-prometheus = "0.13"
 backoff = { version = "0.4", features = ["tokio"] }
 serde_yaml = "0.9"
 rustls = "0.22"
+regex = "1"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 # tauri-plugin-shell = "2"  # Removed - requires OpenSSL

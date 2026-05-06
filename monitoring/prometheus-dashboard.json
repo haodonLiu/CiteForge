@@ -1,0 +1,50 @@
+{
+  "dashboard": {
+    "title": "CiteForge Metrics",
+    "panels": [
+      {
+        "title": "Tasks Started",
+        "type": "graph",
+        "metrics": ["citeforge_task_started_total"],
+        "legend": "{{task_id}}"
+      },
+      {
+        "title": "Tasks Completed",
+        "type": "graph",
+        "metrics": ["citeforge_task_completed_total"],
+        "legend": "completed"
+      },
+      {
+        "title": "Active Tasks",
+        "type": "gauge",
+        "metrics": ["citeforge_active_tasks"],
+        "legend": "current"
+      },
+      {
+        "title": "Task Duration (seconds)",
+        "type": "histogram",
+        "metrics": ["citeforge_task_duration_seconds"],
+        "buckets": [1, 5, 10, 30, 60, 300, 600, 1800, 3600]
+      },
+      {
+        "title": "LLM Calls",
+        "type": "graph",
+        "metrics": ["citeforge_llm_calls_total"],
+        "legend": "{{provider}}"
+      },
+      {
+        "title": "LLM Latency",
+        "type": "histogram",
+        "metrics": ["citeforge_llm_duration_seconds"],
+        "legend": "{{provider}}",
+        "buckets": [0.1, 0.5, 1, 2, 5, 10]
+      },
+      {
+        "title": "LLM Token Usage",
+        "type": "graph",
+        "metrics": ["citeforge_llm_tokens_total"],
+        "legend": "{{provider}}"
+      }
+    ]
+  }
+}

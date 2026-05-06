@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use tauri::State;
+use tauri::{State, Emitter};
 use crate::application::AppContainer;
 use serde::{Deserialize, Serialize};
 
@@ -18,10 +18,20 @@ pub struct TaskResponse {
 #[tauri::command]
 pub async fn run_task(
     topic: String,
+    pdf_paths: Vec<String>,
     container: State<'_, Arc<AppContainer>>,
+    app_handle: tauri::AppHandle,
 ) -> Result<TaskResponse, String> {
     let facade = crate::application::AppFacade::new(container.inner().clone());
     let task_id = facade.run_task(topic).await.map_err(|e| e.to_string())?;
+
+    // Emit TaskStarted event
+    let event = serde_json::json!({
+        "type": "TaskStarted",
+        "payload": { "task_id": &task_id }
+    });
+    let _ = app_handle.emit("task-event", event);
+
     Ok(TaskResponse {
         task_id,
         status: "Pending".to_string(),
