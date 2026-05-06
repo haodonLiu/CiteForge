@@ -20,3 +20,6 @@ downloads/
 .pytest_cache/
 .coverage
 htmlcov/
+*.spec
+__pycache__/
+.ttkbootstrap-cache/
