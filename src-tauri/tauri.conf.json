@@ -4,7 +4,22 @@
   "version": "0.1.0",
   "identifier": "com.citeforge.app",
   "build": {
-    "frontendDist": "../dist",
-    "devUrl": "http://localhost:5173"
+    "beforeBuildCommand": "cd src && npm run build",
+    "beforeDevCommand": "cd src && npm run dev",
+    "frontendDist": "../out",
+    "devUrl": "http://localhost:3000",
+    "devtools": true
+  },
+  "app": {
+    "windows": [{
+      "title": "CiteForge",
+      "width": 1200,
+      "height": 800,
+      "minWidth": 800,
+      "minHeight": 600
+    }]
+  },
+  "security": {
+    "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.semanticscholar.org https://*.openai.com https://*.anthropic.com"
   }
 }
