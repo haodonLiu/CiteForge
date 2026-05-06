@@ -5,7 +5,7 @@ echo   CiteForge 一键启动器
 echo ========================================
 echo.
 
-:: Check Python version
+:: Check Python
 python --version 2>nul
 if errorlevel 1 (
     echo [错误] 未找到 Python，请先安装 Python 3.10+
@@ -14,11 +14,6 @@ if errorlevel 1 (
     exit /b 1
 )
 
-:: Check Python version (need 3.10+)
-for /f "tokens=2" %%i in ('python --version 2^&1') do set PYVER=%%i
-echo 检测到 Python 版本: %PYVER%
-
-:: Get script directory
 set SCRIPT_DIR=%~dp0
 cd /d "%SCRIPT_DIR%"
 
@@ -53,6 +48,6 @@ python -m launcher.main_launcher
 
 if errorlevel 1 (
     echo.
-    echo [错误] 启动失败，请检查错误信息
+    echo [错误] 启动失败
     pause
 )
