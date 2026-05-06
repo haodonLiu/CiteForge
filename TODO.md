@@ -104,5 +104,5 @@
 - [x] `interactive_setup()` 支持环境变量引用 ✅
 - [x] 添加 BibTeX 导出功能 ✅
 - [ ] 配置 pydantic-settings BaseSettings 的 yaml_file 路径处理
-- [ ] 添加真实执行触发器（Web UI 中调用 OrchestratorEngine）
+- [x] 添加真实执行触发器（Web UI 中调用 OrchestratorEngine）✅
 - [ ] 集成测试（end-to-end）
