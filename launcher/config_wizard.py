@@ -1,8 +1,8 @@
-# PCA-Lite GUI Launcher Implementation Plan
+# CiteForge GUI Launcher Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Create a one-click Windows launcher that packages PCA-Lite into a standalone exe with GUI for project setup and config, then launches the Streamlit Web UI.
+**Goal:** Create a one-click Windows launcher that packages CiteForge into a standalone exe with GUI for project setup and config, then launches the Streamlit Web UI.
 
 **Architecture:** Bootstrap script (start.bat) → venv setup → GUI launcher (ttkbootstrap) → Config wizard (first run) → Launch Streamlit Web UI in project folder.
 
@@ -20,7 +20,7 @@ launcher/
 ├── requirements.txt    # ttkbootstrap
 start.bat               # Bootstrap: check Python, venv, pip install
 build.bat              # PyInstaller build command
-pca_lite.spec          # PyInstaller spec file
+citeforge.spec          # PyInstaller spec file
 ```
 
 ---
@@ -72,7 +72,7 @@ git commit -m "feat: create launcher directory structure"
 - [ ] **Step 1: Write config_wizard.py**
 
 ```python
-"""First-time configuration wizard for PCA-Lite."""
+"""First-time configuration wizard for CiteForge."""
 import tkinter as tk
 from tkinter import ttk, messagebox
 from pathlib import Path
@@ -84,7 +84,7 @@ CONFIG_PATH = Path.home() / ".pca" / "config.yaml"
 class ConfigWizard(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
-        self.title("PCA-Lite 首次配置向导")
+        self.title("CiteForge 首次配置向导")
         self.geometry("600x450")
         self.resizable(False, False)
 

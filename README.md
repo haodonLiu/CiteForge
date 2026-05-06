@@ -107,7 +107,7 @@ Launch the Streamlit dashboard:
 ```bash
 pca-web
 # or
-streamlit run pca_lite/web/app.py
+streamlit run citeforge/web/app.py
 ```
 
 Supports English and Chinese (`zh`/`en`) with a monochrome light/dark theme.
@@ -117,7 +117,7 @@ Supports English and Chinese (`zh`/`en`) with a monochrome light/dark theme.
 ## Project Structure
 
 ```
-pca_lite/
+citeforge/
 ├── cli/              # Typer CLI entry point
 ├── core/             # Pydantic models, enums, exceptions
 ├── orchestrator/     # State machine engine

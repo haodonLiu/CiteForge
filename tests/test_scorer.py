@@ -1,8 +1,8 @@
-"""Unit tests for pca_lite/retrieval/scorer.py"""
+"""Unit tests for citeforge/retrieval/scorer.py"""
 import pytest
 
-from pca_lite.core.models import LiteratureEntry
-from pca_lite.retrieval.scorer import RelevanceScorer, ScoreResult
+from citeforge.core.models import LiteratureEntry
+from citeforge.retrieval.scorer import RelevanceScorer, ScoreResult
 
 
 def test_weight_sum_must_equal_one():

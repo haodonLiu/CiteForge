@@ -1,10 +1,10 @@
 # AGENTS.md
 
-This file provides guidance to AI coding agents working with the PCA-Lite repository. Read this first before making any changes.
+This file provides guidance to AI coding agents working with the CiteForge repository. Read this first before making any changes.
 
 ## Project Overview
 
-PCA-Lite is a multi-agent collaboration framework for academic literature review writing. It orchestrates three specialized agents — Researcher, Analyst, and Writer — to produce structured literature reviews with reliable citations and human-in-the-loop checkpoints.
+CiteForge is a multi-agent collaboration framework for academic literature review writing. It orchestrates three specialized agents — Researcher, Analyst, and Writer — to produce structured literature reviews with reliable citations and human-in-the-loop checkpoints.
 
 Core design goals:
 - **Reliable citations**: All citations map to a `literature_pool.json` index (1-based). No hallucinated references.
@@ -41,7 +41,7 @@ Agents communicate via shared workspace JSON files, not in-memory state.
 ### Directory Structure
 
 ```
-pca_lite/
+citeforge/
 ├── cli/              # Typer CLI entry point (run, config commands)
 │   └── app.py
 ├── core/             # Pydantic models, enums, exceptions, constants
@@ -107,12 +107,12 @@ pip install -e .
 # Verify CLI entry points
 pca --help
 pca-web --help
-python -m pca_lite --help
+python -m citeforge --help
 ```
 
 Entry points defined in `pyproject.toml`:
-- `pca` → `pca_lite.cli.app:app`
-- `pca-web` → `pca_lite.web.app:__main__`
+- `pca` → `citeforge.cli.app:app`
+- `pca-web` → `citeforge.web.app:__main__`
 
 ## Key Commands
 
@@ -141,7 +141,7 @@ pca config init
 # Launch Streamlit app
 pca-web
 # or
-streamlit run pca_lite/web/app.py
+streamlit run citeforge/web/app.py
 ```
 
 ### Tests
@@ -169,11 +169,11 @@ Optional fields have sensible defaults. See `config.yaml` in the project root fo
 
 ## Code Style Guidelines
 
-- **Absolute imports only**: Always use `from pca_lite.module import ...`. No relative imports.
+- **Absolute imports only**: Always use `from citeforge.module import ...`. No relative imports.
 - **Type hints**: Use Python 3.10+ syntax (`str | None`, `list[str]`).
 - **Pydantic v2**: All data models use `BaseModel` with `ConfigDict(strict=True)` and `Field(...)` validation.
 - **Docstrings**: Google-style docstrings for public functions and classes.
-- **Error handling**: Use the custom exception hierarchy in `pca_lite.core.exceptions`. Never swallow unexpected errors silently.
+- **Error handling**: Use the custom exception hierarchy in `citeforge.core.exceptions`. Never swallow unexpected errors silently.
 - **Async**: LLM provider methods are async. Agent `run()` methods are async. Use `asyncio.run()` at sync boundaries.
 - **Workspace I/O**: All agent state sharing goes through `WorkspaceManager` JSON files. Do not pass large objects between agents in memory.
 
@@ -189,7 +189,7 @@ Optional fields have sensible defaults. See `config.yaml` in the project root fo
 ## Critical Constraints
 
 1. **Citation integrity**: Writer Agent citations must use `[index]` format mapping to `literature_pool.json` (1-based). WriterAgent has `_check_citations()` to validate this.
-2. **Absolute imports only**: Never use relative imports within `pca_lite/`.
+2. **Absolute imports only**: Never use relative imports within `citeforge/`.
 3. **SHA-256 integrity**: `state.json` records `sha256:<hash>` for every workspace file after each step. `verify_integrity()` detects tampering on resume.
 4. **No LangChain/LangGraph**: The project explicitly forbids these dependencies.
 5. **Workspace directories** (defined in `core/consts.py`):

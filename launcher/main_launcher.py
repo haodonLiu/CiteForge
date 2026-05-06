@@ -1,4 +1,4 @@
-"""PCA-Lite GUI Launcher - Main Window."""
+"""CiteForge GUI Launcher - Main Window."""
 import subprocess
 import sys
 import os
@@ -9,7 +9,7 @@ import threading
 import ttkbootstrap as ttkb
 from ttkbootstrap.constants import *
 
-from pca_lite.core.consts import DIR_RAW_PDFS
+from citeforge.core.consts import DIR_RAW_PDFS
 
 CONFIG_PATH = Path.home() / ".pca" / "config.yaml"
 PROJECT_DIR_VAR = None
@@ -103,7 +103,7 @@ def launch_streamlit(project_dir: Path, topic: str):
 
     cmd = [
         sys.executable, "-m", "streamlit", "run",
-        "pca_lite/web/app.py",
+        "citeforge/web/app.py",
         "--server.port", "8501",
         "--browser.gatherUsageStats", "false",
     ]
@@ -136,7 +136,7 @@ def main():
     ensure_config()
 
     root = ttkb.Window(themename="cosmo")
-    root.title("PCA-Lite Launcher")
+    root.title("CiteForge Launcher")
     root.geometry("700x500")
     root.resizable(False, False)
 
@@ -153,7 +153,7 @@ def main():
     main_frame = ttkb.Frame(root, padding=20)
     main_frame.pack(fill="both", expand=True)
 
-    ttkb.Label(main_frame, text="PCA-Lite", font=("Segoe UI", 20, "bold")).pack(pady=(0, 5))
+    ttkb.Label(main_frame, text="CiteForge", font=("Segoe UI", 20, "bold")).pack(pady=(0, 5))
     ttkb.Label(main_frame, text="面向论文综述的多 Agent 协作框架",
                font=("Segoe UI", 10), bootstyle="secondary").pack(pady=(0, 20))
 

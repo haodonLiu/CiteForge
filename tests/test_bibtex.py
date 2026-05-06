@@ -1,7 +1,7 @@
-"""Unit tests for pca_lite/export/bibtex.py"""
+"""Unit tests for citeforge/export/bibtex.py"""
 import pytest
 
-from pca_lite.export.bibtex import generate_bibtex, _to_bibkey, _infer_type
+from citeforge.export.bibtex import generate_bibtex, _to_bibkey, _infer_type
 
 
 def test_generate_bibtex_basic():

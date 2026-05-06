@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PCA-Lite is a multi-agent collaboration framework for academic literature review writing. CLI-first, Web UI later. Core goals: reliable citations (no hallucination), multi-agent division of labor, human-in-the-loop checkpoints, and resume-from-breakpoint.
+CiteForge is a multi-agent collaboration framework for academic literature review writing. CLI-first, Web UI later. Core goals: reliable citations (no hallucination), multi-agent division of labor, human-in-the-loop checkpoints, and resume-from-breakpoint.
 
 ## Tech Stack (Locked - Do Not Change)
 
@@ -34,16 +34,16 @@ Communication: Shared workspace via JSON files.
 
 ```bash
 pip install -e .                      # Install package
-python -m pca_lite --help              # CLI help
-python -m pca_lite run -t "topic" -f file.pdf  # Run task
-python -m pca_lite config show         # Show config (API key masked)
-python -m pca_lite config init         # Interactive config setup
+python -m citeforge --help              # CLI help
+python -m citeforge run -t "topic" -f file.pdf  # Run task
+python -m citeforge config show         # Show config (API key masked)
+python -m citeforge config init         # Interactive config setup
 ```
 
 ## Directory Structure
 
 ```
-pca_lite/
+citeforge/
 ├── cli/           # Typer CLI entry (run, config commands)
 ├── core/          # Pydantic models, enums, exceptions, constants
 ├── orchestrator/  # State machine engine (execute_plan, resume)

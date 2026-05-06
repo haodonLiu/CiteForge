@@ -1,11 +1,11 @@
-# PCA-Lite GUI Launcher Design
+# CiteForge GUI Launcher Design
 
 **Date:** 2026-05-06
 **Status:** Approved
 
 ## Overview
 
-Create a single-click launcher that packages PCA-Lite into a standalone Windows exe. The launcher provides a GUI for project setup and config, then launches the Streamlit Web UI.
+Create a single-click launcher that packages CiteForge into a standalone Windows exe. The launcher provides a GUI for project setup and config, then launches the Streamlit Web UI.
 
 ## Components
 
@@ -39,7 +39,7 @@ Create a single-click launcher that packages PCA-Lite into a standalone Windows 
 **Behavior:**
 - First run → launches config wizard (API Key, Embedding mode)
 - Config saved to `~/.pca/config.yaml`
-- "Launch" → runs `streamlit run pca_lite/web/app.py --server.port 8501` in project folder
+- "Launch" → runs `streamlit run citeforge/web/app.py --server.port 8501` in project folder
 
 ### 3. Config Wizard (`launcher/config_wizard.py`)
 
@@ -48,7 +48,7 @@ Create a single-click launcher that packages PCA-Lite into a standalone Windows 
 - Step 3: Embedding mode (api/local) + model path/credentials
 - Validates and saves to `~/.pca/config.yaml`
 
-### 4. PyInstaller Spec (`launcher/pca_lite.spec`)
+### 4. PyInstaller Spec (`launcher/citeforge.spec`)
 
 - `--onefile --console` (console window for errors)
 - Includes Python runtime + venv
@@ -64,7 +64,7 @@ launcher/
 ├── requirements.txt      # ttkbootstrap, etc.
 start.bat                 # Bootstrap script
 build.bat                # PyInstaller build command
-pca_lite.spec            # PyInstaller spec file
+citeforge.spec            # PyInstaller spec file
 ```
 
 ## Launch Flow
@@ -88,7 +88,7 @@ start.bat
 3. Implement `main_launcher.py` (project folder + topic + files + launch)
 4. Create `start.bat` (bootstrap)
 5. Create `build.bat` (PyInstaller build)
-6. Create `pca_lite.spec`
+6. Create `citeforge.spec`
 7. Test full flow: start.bat → GUI → launch → Streamlit opens
 
 ## Dependencies (for launcher)

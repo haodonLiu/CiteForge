@@ -1,4 +1,4 @@
-# PCA-Lite Week 1 Implementation Plan
+# CiteForge Week 1 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -13,26 +13,26 @@
 ## Task T01: Create Package Structure
 
 **Files:**
-- Create: `pca_lite/__init__.py`, `pca_lite/__main__.py`
-- Create: `pca_lite/cli/__init__.py`, `pca_lite/core/__init__.py`, `pca_lite/orchestrator/__init__.py`, `pca_lite/workspace/__init__.py`
+- Create: `citeforge/__init__.py`, `citeforge/__main__.py`
+- Create: `citeforge/cli/__init__.py`, `citeforge/core/__init__.py`, `citeforge/orchestrator/__init__.py`, `citeforge/workspace/__init__.py`
 
 - [ ] **Step 1: Create directories**
 
 ```bash
 cd /mnt/c/Users/10954/Desktop/Projects/PCA
-mkdir -p pca_lite/cli pca_lite/core pca_lite/orchestrator pca_lite/workspace
+mkdir -p citeforge/cli citeforge/core citeforge/orchestrator citeforge/workspace
 ```
 
-- [ ] **Step 2: Create `pca_lite/__init__.py`**
+- [ ] **Step 2: Create `citeforge/__init__.py`**
 
 ```python
 __version__ = "0.1.0"
 ```
 
-- [ ] **Step 3: Create `pca_lite/__main__.py`**
+- [ ] **Step 3: Create `citeforge/__main__.py`**
 
 ```python
-from pca_lite.cli.app import app
+from citeforge.cli.app import app
 
 app()
 ```
@@ -40,20 +40,20 @@ app()
 - [ ] **Step 4: Create empty `__init__.py` files**
 
 ```bash
-touch pca_lite/cli/__init__.py pca_lite/core/__init__.py pca_lite/orchestrator/__init__.py pca_lite/workspace/__init__.py
+touch citeforge/cli/__init__.py citeforge/core/__init__.py citeforge/orchestrator/__init__.py citeforge/workspace/__init__.py
 ```
 
 - [ ] **Step 5: Verify**
 
 ```bash
-python -c "import pca_lite; print(pca_lite.__version__)"
-python -c "from pca_lite.cli import app; print(type(app))"
+python -c "import citeforge; print(citeforge.__version__)"
+python -c "from citeforge.cli import app; print(type(app))"
 ```
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add pca_lite/
+git add citeforge/
 git commit -m "feat: create package skeleton (T01)"
 ```
 
@@ -62,13 +62,13 @@ git commit -m "feat: create package skeleton (T01)"
 ## Task T02: Define Enums
 
 **Files:**
-- Create: `pca_lite/core/enums.py`
+- Create: `citeforge/core/enums.py`
 
 - [ ] **Step 1: Write failing test**
 
 ```python
 # tests/core/test_enums.py
-from pca_lite.core.enums import TaskStatus, AgentType, ReviewResult
+from citeforge.core.enums import TaskStatus, AgentType, ReviewResult
 
 def test_task_status_values():
     assert TaskStatus.COMPLETED.value == "completed"
@@ -131,7 +131,7 @@ pytest tests/core/test_enums.py -v
 - [ ] **Step 5: Commit**
 
 ```bash
-git add pca_lite/core/enums.py tests/
+git add citeforge/core/enums.py tests/
 git commit -m "feat: define core enums T02/T03 (T02)"
 ```
 
@@ -140,14 +140,14 @@ git commit -m "feat: define core enums T02/T03 (T02)"
 ## Task T03: Define Core Pydantic Models
 
 **Files:**
-- Create: `pca_lite/core/models.py`
+- Create: `citeforge/core/models.py`
 
 - [ ] **Step 1: Write failing test**
 
 ```python
 # tests/core/test_models.py
-from pca_lite.core.models import TaskPlan, Step, LiteratureEntry, State
-from pca_lite.core.enums import AgentType, TaskStatus
+from citeforge.core.models import TaskPlan, Step, LiteratureEntry, State
+from citeforge.core.enums import AgentType, TaskStatus
 
 def test_literature_entry_index_validation():
     # Valid: index >= 1
@@ -184,7 +184,7 @@ Run: `pytest tests/core/test_models.py -v` — Expected: FAIL (models not define
 ```python
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from pca_lite.core.enums import AgentType
+from citeforge.core.enums import AgentType
 
 class Step(BaseModel):
     model_config = ConfigDict(strict=True)
@@ -277,7 +277,7 @@ pytest tests/core/test_models.py -v
 - [ ] **Step 4: Commit**
 
 ```bash
-git add pca_lite/core/models.py tests/
+git add citeforge/core/models.py tests/
 git commit -m "feat: define core Pydantic models (T03)"
 ```
 
@@ -286,13 +286,13 @@ git commit -m "feat: define core Pydantic models (T03)"
 ## Task T04: Define Config Models
 
 **Files:**
-- Modify: `pca_lite/core/models.py` (append at end)
+- Modify: `citeforge/core/models.py` (append at end)
 
 - [ ] **Step 1: Write failing test**
 
 ```python
 # tests/core/test_config.py
-from pca_lite.core.models import Config, LLMConfig, EmbeddingConfig
+from citeforge.core.models import Config, LLMConfig, EmbeddingConfig
 
 def test_llm_config_validation():
     c = LLMConfig(provider="openai", base_url="https://api.openai.com", api_key="sk-test", model="gpt-4o")
@@ -302,7 +302,7 @@ def test_llm_config_validation():
         LLMConfig(provider="invalid", base_url="x", api_key="x", model="x")
 
 def test_retry_config_defaults():
-    from pca_lite.core.models import RetryConfig
+    from citeforge.core.models import RetryConfig
     r = RetryConfig()
     assert r.max_attempts == 3
     assert r.backoff == "exponential"
@@ -310,7 +310,7 @@ def test_retry_config_defaults():
 
 - [ ] **Step 2: Implement config models**
 
-Append to `pca_lite/core/models.py`:
+Append to `citeforge/core/models.py`:
 
 ```python
 from pydantic_settings import BaseSettings
@@ -419,7 +419,7 @@ pytest tests/core/test_config.py -v
 - [ ] **Step 4: Commit**
 
 ```bash
-git add pca_lite/core/models.py tests/
+git add citeforge/core/models.py tests/
 git commit -m "feat: define config models (T04)"
 ```
 
@@ -434,7 +434,7 @@ git commit -m "feat: define config models (T04)"
 
 ```yaml
 # ============================================================
-# PCA-Lite Configuration Template
+# CiteForge Configuration Template
 # ============================================================
 
 # ---------- LLM (main model) [core] ----------
@@ -539,7 +539,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
-name = "pca-lite"
+name = "citeforge"
 version = "0.1.0"
 description = "面向论文综述的多 Agent 协作框架"
 requires-python = ">=3.10"
@@ -556,10 +556,10 @@ dependencies = [
 ]
 
 [project.scripts]
-pca = "pca_lite.cli.app:app"
+pca = "citeforge.cli.app:app"
 
 [tool.setuptools.packages.find]
-include = ["pca_lite*"]
+include = ["citeforge*"]
 ```
 
 - [ ] **Step 3: Create `.gitignore`**
@@ -595,7 +595,7 @@ git commit -m "feat: add config template and pyproject.toml (T05)"
 ## Task T06: Workspace Init
 
 **Files:**
-- Create: `pca_lite/workspace/manager.py`
+- Create: `citeforge/workspace/manager.py`
 
 - [ ] **Step 1: Write failing test**
 
@@ -603,7 +603,7 @@ git commit -m "feat: add config template and pyproject.toml (T05)"
 # tests/workspace/test_manager.py
 import tempfile, shutil
 from pathlib import Path
-from pca_lite.workspace.manager import WorkspaceManager
+from citeforge.workspace.manager import WorkspaceManager
 
 def test_init_workspace():
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -629,7 +629,7 @@ Run: `pytest tests/workspace/test_manager.py::test_init_workspace -v` — Expect
 import json
 from pathlib import Path
 from datetime import datetime
-from pca_lite.core.models import State
+from citeforge.core.models import State
 
 class WorkspaceManager:
     def __init__(self, workspace_dir: Path):
@@ -660,7 +660,7 @@ pytest tests/workspace/test_manager.py -v
 - [ ] **Step 4: Commit**
 
 ```bash
-git add pca_lite/workspace/manager.py tests/
+git add citeforge/workspace/manager.py tests/
 git commit -m "feat: implement workspace init (T06)"
 ```
 
@@ -764,7 +764,7 @@ git commit -m "feat: implement CLI entry with Typer (T14)"
 
 ## Task T15: Verify __main__.py
 
-- [ ] **Step 1: Verify `python -m pca_lite --help` works**
+- [ ] **Step 1: Verify `python -m citeforge --help` works**
 
 - [ ] **Step 2: Commit**
 

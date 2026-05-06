@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul 2>&1
 echo ========================================
-echo   PCA-Lite 打包工具
+echo   CiteForge 打包工具
 echo ========================================
 echo.
 
@@ -17,7 +17,7 @@ if errorlevel 1 (
 
 :: Build exe
 echo 开始打包...
-pyinstaller pca_lite.spec --clean
+pyinstaller citeforge.spec --clean
 
 if errorlevel 1 (
     echo.
