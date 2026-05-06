@@ -6,6 +6,8 @@ import typer
 import yaml
 from rich.console import Console
 from rich.panel import Panel
+from rich.prompt import Confirm
+from rich.table import Table
 
 from pca_lite.core.models import Config
 
@@ -121,6 +123,7 @@ def run(
     files: list[Path] = typer.Option([], "--files", "-f", help="本地 PDF 文件路径"),
     config_path: Path = typer.Option(None, "--config", "-c", help="配置文件路径"),
     resume: Path = typer.Option(None, "--resume", "-r", help="断点恢复工作区路径"),
+    skip_human_in_loop: bool = typer.Option(False, "--yes", "-y", help="跳过人机确认（自动化模式）"),
 ):
     if topic and resume:
         console.print("[red]错误: --topic 和 --resume 不能同时使用[/red]")
@@ -143,9 +146,61 @@ def run(
         ws.init_workspace()
         engine = OrchestratorEngine(ws)
         plan = engine.load_or_create_plan(topic, files)
-        console.print(f"[bold]TaskPlan:[/bold] topic={plan.topic}, steps={len(plan.steps)}, type={plan.review_type}")
+
+        console.print(f"[bold]Topic:[/bold] {plan.topic}")
+        table = Table(title="计划步骤")
+        table.add_column("ID", style="cyan")
+        table.add_column("Agent", style="magenta")
+        table.add_column("Task", style="green")
+        table.add_column("Output", style="yellow")
+        for step in plan.steps:
+            table.add_row(step.id, step.agent.value, step.task, step.output)
+        console.print(table)
+
+        # Checkpoint 1: Confirm before execution
+        if not skip_human_in_loop:
+            confirmed = Confirm.ask(
+                "[bold yellow]确认执行计划?[/bold yellow] 步骤数: "
+                f"{len(plan.steps)} | 文件数: {len(files)}",
+                default=False,
+            )
+            if not confirmed:
+                console.print("[yellow]用户取消，退出[/yellow]")
+                raise typer.Exit(0)
+
         state = engine.execute_plan(plan)
+
+        # Checkpoint 2: After literature retrieval (step_1 completes)
+        if "step_1" in state.completed_steps and not skip_human_in_loop:
+            try:
+                pool = ws.read_json("literature_pool.json")
+                entries = pool.get("entries", pool) if isinstance(pool, dict) else []
+                console.print(Panel(
+                    f"[bold]文献池大小:[/bold] {len(entries)}\n"
+                    f"[bold]已完成步骤:[/bold] {len(state.completed_steps)}",
+                    title="文献检索完成",
+                ))
+                proceed = Confirm.ask("[bold yellow]是否继续撰写综述?[/bold yellow]", default=True)
+                if not proceed:
+                    console.print("[yellow]已暂停，使用 --resume 恢复[/yellow]")
+                    return
+            except Exception:
+                pass
+
         console.print(f"[green]完成，已执行步骤: {state.completed_steps}[/green]")
+
+        # Checkpoint 3: Before finalizing (when draft.md exists)
+        if not skip_human_in_loop:
+            draft_path = ws.workspace_dir / "draft.md"
+            if draft_path.exists():
+                confirmed = Confirm.ask(
+                    "[bold yellow]确认输出最终综述?[/bold yellow]",
+                    default=True,
+                )
+                if not confirmed:
+                    console.print("[yellow]草稿未提交，请修改后重试[/yellow]")
+                    return
+
         return
 
     console.print("[red]错误: 必须提供 --topic 或 --resume[/red]")

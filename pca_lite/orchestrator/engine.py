@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
@@ -7,8 +8,9 @@ from pca_lite.workspace.manager import WorkspaceManager
 
 
 class OrchestratorEngine:
-    def __init__(self, workspace: WorkspaceManager):
+    def __init__(self, workspace: WorkspaceManager, max_workers: int = 4):
         self.workspace = workspace
+        self.max_workers = max_workers
 
     def load_or_create_plan(self, topic: str, files: list[Path]) -> TaskPlan:
         return TaskPlan(
@@ -49,38 +51,89 @@ class OrchestratorEngine:
         state_dict = self.workspace.read_json("state.json")
         state = State.model_validate(state_dict)
 
+        groups: dict[str | None, list[Step]] = {}
         for step in plan.steps:
-            if step.id in state.completed_steps:
-                print(f"[SKIP] 步骤已跳过: {step.id}")
-                continue
+            group_key = step.parallel_group
+            if group_key not in groups:
+                groups[group_key] = []
+            groups[group_key].append(step)
 
+        for group_key, steps_in_group in groups.items():
+            if group_key is None:
+                for step in steps_in_group:
+                    self._execute_single_step(step, state, plan)
+            else:
+                self._execute_parallel_group(steps_in_group, state, plan)
+
+        return state
+
+    def _execute_single_step(self, step: Step, state: State, plan: TaskPlan) -> None:
+        if step.id in state.completed_steps:
+            print(f"[SKIP] 步骤已跳过: {step.id}")
+            return
+
+        for dep in step.input_from:
+            if dep not in state.completed_steps:
+                raise ValueError(f"依赖未满足: {step.id} 依赖 {dep}，但 {dep} 未完成")
+
+        state.current_step = step.id
+        state.timestamp = datetime.now().isoformat()
+        self.workspace.write_json("state.json", state)
+
+        try:
+            self.execute_step(step)
+            state.completed_steps.append(step.id)
+            state.timestamp = datetime.now().isoformat()
+            self.workspace.write_json("state.json", state)
+        except Exception as e:
+            retry_count = state.retry_counts.get(step.id, 0) + 1
+            state.retry_counts[step.id] = retry_count
+            if retry_count <= plan.constraints.max_retry:
+                print(f"[RETRY] 步骤 {step.id} 失败，重试 ({retry_count}/{plan.constraints.max_retry})")
+                state.timestamp = datetime.now().isoformat()
+                self.workspace.write_json("state.json", state)
+            else:
+                print(f"[FAIL] 步骤 {step.id} 超过最大重试次数")
+                state.completed_steps.append(step.id)
+                self.workspace.write_json("state.json", state)
+
+    def _execute_parallel_group(
+        self, steps: list[Step], state: State, plan: TaskPlan
+    ) -> None:
+        for step in steps:
+            if step.id in state.completed_steps:
+                continue
             for dep in step.input_from:
                 if dep not in state.completed_steps:
                     raise ValueError(f"依赖未满足: {step.id} 依赖 {dep}，但 {dep} 未完成")
 
-            state.current_step = step.id
-            state.timestamp = datetime.now().isoformat()
-            self.workspace.write_json("state.json", state)
+        state.current_step = ",".join(s.id for s in steps)
+        state.timestamp = datetime.now().isoformat()
+        self.workspace.write_json("state.json", state)
 
-            try:
-                self.execute_step(step)
+        with ThreadPoolExecutor(max_workers=min(len(steps), self.max_workers)) as executor:
+            futures = {
+                executor.submit(self._run_step_safe, step, plan): step
+                for step in steps
+            }
+            all_success = True
+            for future in as_completed(futures):
+                step = futures[future]
+                try:
+                    future.result()
+                except Exception as e:
+                    all_success = False
+                    print(f"[FAIL] Parallel step {step.id} failed: {e}")
+
+        for step in steps:
+            if all_success and step.id not in state.completed_steps:
                 state.completed_steps.append(step.id)
-                state.timestamp = datetime.now().isoformat()
-                self.workspace.write_json("state.json", state)
-            except Exception as e:
-                retry_count = state.retry_counts.get(step.id, 0) + 1
-                state.retry_counts[step.id] = retry_count
-                if retry_count <= plan.constraints.max_retry:
-                    print(f"[RETRY] 步骤 {step.id} 失败，重试 ({retry_count}/{plan.constraints.max_retry})")
-                    state.timestamp = datetime.now().isoformat()
-                    self.workspace.write_json("state.json", state)
-                    # Do NOT mark completed — retry is still pending
-                else:
-                    print(f"[FAIL] 步骤 {step.id} 超过最大重试次数")
-                    state.completed_steps.append(step.id)
-                    self.workspace.write_json("state.json", state)
 
-        return state
+        state.timestamp = datetime.now().isoformat()
+        self.workspace.write_json("state.json", state)
+
+    def _run_step_safe(self, step: Step, plan: TaskPlan) -> None:
+        self.execute_step(step)
 
     def execute_step(self, step: Step) -> dict:
         print(f"[EXEC] 步骤 {step.id}: {step.task}")
