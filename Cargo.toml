@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/citeforge-core",
+    "crates/citeforge-llm",
+    "crates/citeforge-retrieval",
+    "crates/citeforge-pdf",
+    "crates/citeforge-search",
+    "crates/citeforge-workspace",
+    "crates/citeforge-chroma",
+    "src-tauri",
+]

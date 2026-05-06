@@ -1,0 +1,15 @@
+[package]
+name = "citeforge-pdf"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+citeforge-core = { path = "../citeforge-core" }
+async-trait = "0.1"
+lopdf = "0.32"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }
