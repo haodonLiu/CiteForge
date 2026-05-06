@@ -31,8 +31,19 @@ def render() -> None:
                     mime="text/markdown",
                 )
         with col2:
-            if st.button("📦 导出 BibTeX"):
-                st.info("BibTeX 导出功能即将实现")
+            pool_path = WORKSPACE_DIR / "literature_pool.json"
+            if st.button("📦 导出 BibTeX") and pool_path.exists():
+                try:
+                    from pca_lite.export.bibtex import export_literature_pool
+                    bibtex = export_literature_pool(pool_path)
+                    st.download_button(
+                        "下载参考文献.bib",
+                        data=bibtex.encode("utf-8"),
+                        file_name="references.bib",
+                        mime="application/x-bibtex",
+                    )
+                except Exception as e:
+                    st.error(f"BibTeX 导出失败: {e}")
 
         st.divider()
         st.subheader("引用检查")
