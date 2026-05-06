@@ -1,36 +1,49 @@
 """Home page."""
 import streamlit as st
 
+from pca_lite.web.i18n import T
+
 
 def render() -> None:
-    st.header("欢迎使用 PCA-Lite")
-    st.markdown("""
-    **PCA-Lite** 是一个基于多 Agent 协作的学术文献综述生成框架。
+    st.header(f"📖 {T('home.welcome')}")
 
-    ### 工作流程
-
-    1. **配置** — 设置 LLM Provider 和 Embedding 模型
-    2. **上传文献** — 上传 PDF 文件或输入搜索关键词
-    3. **执行** — 启动多 Agent 协作流程（Researcher → Analyst → Writer）
-    4. **预览** — 查看并导出最终综述
-
-    ### 核心特性
-
-    - **引用防幻觉** — 所有引用映射到 `literature_pool.json` 的 1-based index
-    - **断点续作** — SHA-256 完整性校验，任意步骤可恢复
-    - **人机回环** — 计划确认、初稿预览、终稿确认三处人工确认节点
-    - **并行执行** — 支持 Agent 节点并行调度
-    """)
-    st.divider()
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.info("**Researcher Agent** — 校验 + 补充文献")
-    with col2:
-        st.info("**Analyst Agent** — 主题聚类 + 发现提取")
-    with col3:
-        st.info("**Writer Agent** — 综述撰写 + 引用溯源")
+    st.subheader(T("home.workflow_title"))
+    cols = st.columns(4)
+    for i, col in enumerate(cols, 1):
+        col.markdown(
+            f"**{i}. {T(f'home.workflow_step{i}')}**",
+            unsafe_allow_html=True,
+        )
 
     st.divider()
-    st.markdown("#### 快速开始")
-    st.info("请使用左侧导航栏切换到相应页面")
+
+    st.subheader(T("home.features_title"))
+    feat_cols = st.columns(2)
+    features = [
+        ("home.feature_citation", "home.feature_citation_desc"),
+        ("home.feature_resume", "home.feature_resume_desc"),
+        ("home.feature_human", "home.feature_human_desc"),
+        ("home.feature_parallel", "home.feature_parallel_desc"),
+    ]
+    for i, ((feat_key, desc_key), col) in enumerate(zip(features, feat_cols * 2)):
+        col.markdown(f"**{T(feat_key)}**")
+        col.caption(T(desc_key))
+
+    st.divider()
+
+    st.subheader(T("home.agent_title"))
+    agent_cols = st.columns(3)
+    agents = [
+        ("home.agent_researcher", "home.agent_researcher_desc"),
+        ("home.agent_analyst", "home.agent_analyst_desc"),
+        ("home.agent_writer", "home.agent_writer_desc"),
+    ]
+    for (name_key, desc_key), col in zip(agents, agent_cols):
+        col.markdown(f"**{T(name_key)}**")
+        col.caption(T(desc_key))
+
+    st.divider()
+
+    st.subheader(T("home.quickstart"))
+    for i in range(1, 5):
+        st.markdown(f"{i}. {T(f'home.quickstart_step{i}')}")

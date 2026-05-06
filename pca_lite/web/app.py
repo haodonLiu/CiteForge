@@ -1,9 +1,10 @@
 """PCA-Lite Web UI — Streamlit application."""
-import os
 import sys
 from pathlib import Path
 
 import streamlit as st
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 st.set_page_config(
     page_title="PCA-Lite",
@@ -12,51 +13,61 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# Apply monochrome theme
+from pca_lite.web.theme import THEME_CSS
+st.markdown(THEME_CSS, unsafe_allow_html=True)
 
-st.title("📚 PCA-Lite")
-st.caption("多 Agent 协作文献综述框架")
+# i18n must be imported after theme so locale is initialized
+from pca_lite.web.i18n import T
+
+st.title(f"📚 {T('app.title')}")
+st.caption(T("app.tagline"))
+
+NAV_PAGES = [
+    ("home", "🏠"),
+    ("config_page", "⚙️"),
+    ("documents", "📄"),
+    ("monitoring", "🚀"),
+    ("preview", "📝"),
+]
+
+# Icons are locale-invariant — use them as stable keys
+NAV_ICON_MAP = {icon: name for name, icon in NAV_PAGES}
 
 st.sidebar.title("导航")
-page = st.sidebar.radio(
-    "选择页面",
-    [
-        "🏠 首页",
-        "⚙️ 配置",
-        "📄 文献管理",
-        "🚀 执行监控",
-        "📝 终稿预览",
-    ],
-)
+nav_icons = [icon for _, icon in NAV_PAGES]
+labels = [T(f"nav.{name}") for name, _ in NAV_PAGES]
 
+# Determine selected index — use session_state to survive reruns
+if "nav_index" not in st.session_state:
+    st.session_state.nav_index = 0
 
-if page == "🏠 首页":
-    from pca_lite.web.pages import home
+selected_icon = st.sidebar.radio("导航", nav_icons, index=st.session_state.nav_index)
+selected_idx = nav_icons.index(selected_icon)
+st.session_state.nav_index = selected_idx
 
-    home.render()
+module_name = NAV_ICON_MAP[nav_icons[selected_idx]]
 
-elif page == "⚙️ 配置":
-    from pca_lite.web.pages import config_page
+PAGES = {
+    "home": ("pca_lite.web.pages", "home"),
+    "config_page": ("pca_lite.web.pages", "config_page"),
+    "documents": ("pca_lite.web.pages", "documents"),
+    "monitoring": ("pca_lite.web.pages", "monitoring"),
+    "preview": ("pca_lite.web.pages", "preview"),
+}
 
-    config_page.render()
+# Display label alongside icon
+st.sidebar.caption(labels[selected_idx])
 
-elif page == "📄 文献管理":
-    from pca_lite.web.pages import documents
-
-    documents.render()
-
-elif page == "🚀 执行监控":
-    from pca_lite.web.pages import monitoring
-
-    monitoring.render()
-
-elif page == "📝 终稿预览":
-    from pca_lite.web.pages import preview
-
-    preview.render()
+if module_name in PAGES:
+    module_path, name = PAGES[module_name]
+    module = __import__(module_path, fromlist=[name])
+    getattr(module, "render")()
 
 
 if __name__ == "__main__":
     import subprocess
-    import sys
-    subprocess.run([sys.executable, "-m", "streamlit", "run", __file__, "--server.port", "8501"])
+
+    subprocess.run(
+        [sys.executable, "-m", "streamlit", "run", __file__, "--server.port", "8501"]
+    )

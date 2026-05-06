@@ -218,6 +218,12 @@ class LoggingConfig(BaseModel):
     file: str = Field(default="./workspace/pca.log")
 
 
+class UIConfig(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    locale: str = Field(default="zh", pattern=r"^(zh|en)$")
+
+
 class Config(BaseSettings):
     model_config = ConfigDict(yaml_file="config.yaml", env_prefix="PCA_")
 
@@ -225,9 +231,10 @@ class Config(BaseSettings):
     llm_lite: LLMConfig | None = None
     embedding: EmbeddingConfig
     reranker: RerankerConfig = Field(default_factory=RerankerConfig)
-    vector_db: VectorDBConfig = Field(default_factory=VectorDBConfig)
+    vector_db: VectorDBConfig = Field(default_factory=RerankerConfig)
     search: SearchConfig = Field(default_factory=SearchConfig)
     parser: ParserConfig = Field(default_factory=ParserConfig)
     orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)
     persistence: PersistenceConfig = Field(default_factory=PersistenceConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    ui: UIConfig = Field(default_factory=UIConfig)

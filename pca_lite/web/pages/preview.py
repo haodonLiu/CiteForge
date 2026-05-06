@@ -1,21 +1,26 @@
 """Draft preview and export page."""
+import re
 from pathlib import Path
 
 import streamlit as st
 
 from pca_lite.core.consts import FILE_DRAFT, FILE_LITERATURE_POOL
-
-WORKSPACE_DIR = Path.home() / ".pca" / "workspace"
-DRAFT_PATH = WORKSPACE_DIR / FILE_DRAFT
+from pca_lite.export.bibtex import export_literature_pool
+from pca_lite.web.i18n import T
+from pca_lite.web.components import WORKSPACE_DIR, render_citation_check
 
 
 def render() -> None:
-    st.header("📝 终稿预览与导出")
+    st.header(f"📝 {T('preview.title')}")
 
-    if DRAFT_PATH.exists():
-        content = DRAFT_PATH.read_text(encoding="utf-8")
+    draft_path = WORKSPACE_DIR / FILE_DRAFT
 
-        tab_preview, tab_markdown = st.tabs(["预览", "原始 Markdown"])
+    if draft_path.exists():
+        content = draft_path.read_text(encoding="utf-8")
+
+        tab_preview, tab_markdown = st.tabs(
+            [T("preview.tab_preview"), T("preview.tab_markdown")]
+        )
 
         with tab_preview:
             st.markdown(content)
@@ -25,62 +30,38 @@ def render() -> None:
 
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("📥 下载 Markdown"):
-                st.download_button(
-                    "下载 draft.md",
-                    data=content.encode("utf-8"),
-                    file_name="literature_review.md",
-                    mime="text/markdown",
-                )
+            st.download_button(
+                f"📥 {T('preview.download_md')}",
+                data=content.encode("utf-8"),
+                file_name="literature_review.md",
+                mime="text/markdown",
+            )
         with col2:
             pool_path = WORKSPACE_DIR / FILE_LITERATURE_POOL
-            if st.button("📦 导出 BibTeX") and pool_path.exists():
+            if st.button(f"📦 {T('preview.export_bibtex')}") and pool_path.exists():
                 try:
-                    from pca_lite.export.bibtex import export_literature_pool
                     bibtex = export_literature_pool(pool_path)
                     st.download_button(
-                        "下载参考文献.bib",
+                        "references.bib",
                         data=bibtex.encode("utf-8"),
                         file_name="references.bib",
                         mime="application/x-bibtex",
                     )
                 except OSError as e:
-                    st.error(f"BibTeX 导出失败: {e}")
+                    st.error(f"{T('preview.bibtex_export_failed')}: {e}")
 
         st.divider()
-        st.subheader("引用检查")
-        import re
-        citations = re.findall(r"\[(\d+(?:-\d+)?)\]", content)
+
         pool_path = WORKSPACE_DIR / FILE_LITERATURE_POOL
         if pool_path.exists():
             import json
-            with open(pool_path) as f:
+
+            with open(pool_path, encoding="utf-8") as f:
                 pool = json.load(f)
             entries = pool if isinstance(pool, list) else pool.get("entries", [])
             pool_size = len(entries)
-            invalid = []
-            for c in citations:
-                if "-" in c:
-                    parts = c.split("-")
-                    try:
-                        for idx in range(int(parts[0]), int(parts[1]) + 1):
-                            if idx < 1 or idx > pool_size:
-                                invalid.append(c)
-                                break
-                    except ValueError:
-                        invalid.append(c)
-                else:
-                    try:
-                        idx = int(c)
-                        if idx < 1 or idx > pool_size:
-                            invalid.append(c)
-                    except ValueError:
-                        invalid.append(c)
-            if invalid:
-                st.error(f"发现 {len(invalid)} 个无效引用: {set(invalid)}")
-            else:
-                st.success(f"所有 {len(citations)} 个引用均有效")
+            render_citation_check(content, pool_size)
         else:
             st.warning("文献池不存在，无法验证引用")
     else:
-        st.info("draft.md 尚不存在，请在执行监控页面运行生成流程")
+        st.info(T("monitoring.draft_not_exist"))
