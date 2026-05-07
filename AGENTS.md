@@ -14,25 +14,31 @@ Core design goals:
 
 ## Tech Stack
 
-- **Python**: 3.10+
-- **Core libraries**: Pydantic v2, pydantic-settings, Typer, Rich, httpx, PyYAML
-- **PDF parsing**: PyMuPDF (fitz)
-- **Vector DB**: ChromaDB
-- **Embeddings**: sentence-transformers (local) or OpenAI-compatible API
-- **Web UI**: Streamlit (monochrome theme, i18n zh/en)
-- **Forbidden**: LangChain, LangGraph (any components). Do not introduce them.
+- **Backend**: Rust (2021 edition), Tauri 2
+- **Frontend**: Next.js 14, React 18, TypeScript
+- **Database**: SQLite (rusqlite), ChromaDB (vector store)
+- **PDF Parsing**: pdf-extract crate
+- **LLM**: Async providers with retry logic (OpenAI-compatible, Anthropic, Ollama)
+- **Concurrency**: Tokio async runtime
+- **Forbidden**: No LangChain, LangGraph, or Python dependencies
 
 ## Architecture
 
 ```
-CLI (Typer + Rich) / Web UI (Streamlit)
-    ↓
-OrchestratorEngine (state machine + parallel execution)
-    ↓
-┌─────────────┬─────────────┬─────────────┐
-│  Researcher │   Analyst   │   Writer    │
-└─────────────┴─────────────┴─────────────┘
-    ↓
+Next.js Frontend (React)
+         │
+         ▼
+Tauri IPC Commands
+         │
+         ▼
+OrchestratorEngine (async state machine)
+         │
+         ▼
+┌────────────┬────────────┬────────────┐
+│ Researcher │  Analyst   │  Writer    │
+└────────────┴────────────┴────────────┘
+         │
+         ▼
 Tools (PDF Parser / Vector Store / Hybrid Search / Web Search / BibTeX Export)
 ```
 
@@ -42,77 +48,72 @@ Agents communicate via shared workspace JSON files, not in-memory state.
 
 ```
 citeforge/
-├── cli/              # Typer CLI entry point (run, config commands)
-│   └── app.py
-├── core/             # Pydantic models, enums, exceptions, constants
-│   ├── consts.py     # Workspace file names and directory constants
-│   ├── enums.py      # TaskStatus, AgentType, ReviewResult
-│   ├── exceptions.py # PCAException hierarchy
-│   └── models.py     # TaskPlan, Step, LiteratureEntry, State, Config, etc.
-├── orchestrator/     # State machine engine
-│   └── engine.py     # OrchestratorEngine (plan, execute, resume, parallel groups)
-├── workspace/        # Workspace manager
-│   └── manager.py    # init, read/write JSON, SHA-256 integrity
-├── agents/           # Three agent implementations
-│   ├── researcher.py # Verify literature + web search supplement
-│   ├── analyst.py    # Theme clustering, trends, gaps
-│   └── writer.py     # Draft generation with citation check
-├── ingestion/        # Document preprocessing pipeline
-│   ├── parser.py     # PDF text extraction (PyMuPDF → JSONL)
-│   ├── metadata.py   # Metadata extraction
-│   ├── splitter.py   # Recursive character text chunking
-│   ├── summarizer.py # L1/L2 auto-summary via LLM
-│   └── dedup.py      # DOI/title deduplication + clustering
-├── retrieval/        # Search and ranking
-│   ├── vector_store.py   # ChromaDB wrapper
-│   ├── hybrid_search.py  # BM25 + vector fusion (RRF)
-│   ├── reranker.py       # Cross-encoder reranking (local/API)
-│   └── scorer.py         # Relevance scoring (vector + metadata + citations)
-├── llm/              # LLM provider abstraction
-│   ├── base.py           # BaseProvider ABC with retry/backoff
-│   ├── embedding.py      # Embedding model wrapper (local/API)
-│   └── providers/        # OpenAI, Anthropic, Ollama providers
-│       ├── openai.py
-│       ├── anthropic.py
-│       └── ollama.py
-├── search/           # Web search integration
-│   └── semantic_scholar.py
-├── export/           # Output formatting
-│   └── bibtex.py     # Literature pool → BibTeX export
-├── prompts/          # Agent system prompts (Markdown)
-│   ├── researcher.md
-│   ├── analyst.md
-│   └── writer.md
-└── web/              # Streamlit Web UI
-    ├── app.py        # Entry point + navigation
-    ├── theme.py      # Monochrome CSS (light/dark)
-    ├── i18n.py       # Localization (zh/en YAML)
-    ├── components.py # Reusable UI components
-    ├── execution.py  # Real orchestrator runner for Web UI
-    ├── locales/      # Translation YAML files
-    └── pages/        # Page modules
-        ├── home.py
-        ├── config_page.py
-        ├── documents.py
-        ├── monitoring.py
-        └── preview.py
+├── src/                      # Next.js frontend
+│   ├── app/                  # App router pages
+│   │   ├── page.tsx          # Home page
+│   │   ├── documents/        # Document upload page
+│   │   ├── monitoring/       # Task monitoring page
+│   │   └── preview/          # Preview page
+│   ├── components/           # React components
+│   ├── hooks/                # Custom hooks
+│   └── lib/                  # Shared utilities
+├── src-tauri/                # Tauri application
+│   ├── src/
+│   │   ├── main.rs           # Entry point
+│   │   ├── lib.rs            # Library exports
+│   │   ├── commands/         # IPC command handlers
+│   │   └── state.rs          # Application state
+│   └── Cargo.toml
+├── crates/                   # Rust workspace crates
+│   ├── citeforge-core/       # Core types, state machine
+│   │   ├── src/
+│   │   │   ├── lib.rs
+│   │   │   ├── models.rs     # Data models (Pydantic-equivalent in Rust)
+│   │   │   ├── orchestrator.rs
+│   │   │   └── errors.rs     # Error types
+│   ├── citeforge-llm/        # LLM provider abstraction
+│   │   └── src/
+│   │       ├── lib.rs
+│   │       ├── providers/    # OpenAI, Anthropic, Ollama
+│   │       └── embedding.rs
+│   ├── citeforge-retrieval/  # Hybrid search and reranking
+│   │   └── src/
+│   │       ├── lib.rs
+│   │       ├── hybrid_search.rs
+│   │       └── reranker.rs
+│   ├── citeforge-pdf/        # PDF parsing
+│   │   └── src/
+│   │       ├── lib.rs
+│   │       └── parser.rs
+│   ├── citeforge-search/     # Semantic Scholar API
+│   │   └── src/
+│   │       └── lib.rs
+│   ├── citeforge-workspace/  # Workspace management
+│   │   └── src/
+│   │       ├── lib.rs
+│   │       ├── manager.rs
+│   │       └── integrity.rs  # SHA-256 verification
+│   └── citeforge-chroma/     # ChromaDB integration
+│       └── src/
+│           └── lib.rs
 ```
 
 ## Build and Install
 
 ```bash
-# Install in editable mode
-pip install -e .
+# Build Tauri application
+cargo build --release
 
-# Verify CLI entry points
-pca --help
-pca-web --help
-python -m citeforge --help
+# Run in development mode
+cargo run -- --dev
+
+# Run tests
+cargo test --workspace
+
+# Lint
+cargo fmt -- --check
+cargo clippy --workspace -- -D warnings
 ```
-
-Entry points defined in `pyproject.toml`:
-- `pca` → `citeforge.cli.app:app`
-- `pca-web` → `citeforge.web.app:__main__`
 
 ## Key Commands
 
@@ -120,43 +121,37 @@ Entry points defined in `pyproject.toml`:
 
 ```bash
 # Run a literature review task
-pca run -t "Survey on LLM Agents" -f paper1.pdf -f paper2.pdf
+cargo run -- run -t "Survey on LLM Agents" -f paper1.pdf -f paper2.pdf
 
 # Resume from a saved workspace
-pca run --resume ~/.pca/workspace
-
-# Skip human confirmation (automation mode)
-pca run -t "Topic" --yes
+cargo run -- resume ~/.citeforge/workspace
 
 # Show current config (API keys masked)
-pca config show
+cargo run -- config show
 
 # Interactive first-time setup
-pca config init
+cargo run -- config init
 ```
 
-### Web UI
+### Frontend Development
 
 ```bash
-# Launch Streamlit app
-pca-web
-# or
-streamlit run citeforge/web/app.py
+cd src
+npm install
+npm run dev      # Development server on http://localhost:3000
+npm run build    # Production build
 ```
 
 ### Tests
 
 ```bash
-pytest                    # Run all tests
-pytest tests/core/        # Core module tests
-pytest tests/workspace/   # Workspace tests
-pytest tests/test_bibtex.py -v
-pytest tests/test_scorer.py -v
+cargo test --workspace        # Run all Rust tests
+cargo test -p citeforge-core  # Run core crate tests
 ```
 
 ## Configuration
 
-Config is loaded from `~/.pca/config.yaml` by default. Supports environment variable interpolation: `${VAR_NAME}`.
+Config is loaded from `~/.citeforge/config.yaml` by default. Supports environment variable interpolation: `${VAR_NAME}`.
 
 Required fields:
 - `llm.provider`: `openai` | `anthropic` | `ollama`
@@ -169,32 +164,26 @@ Optional fields have sensible defaults. See `config.yaml` in the project root fo
 
 ## Code Style Guidelines
 
-- **Absolute imports only**: Always use `from citeforge.module import ...`. No relative imports.
-- **Type hints**: Use Python 3.10+ syntax (`str | None`, `list[str]`).
-- **Pydantic v2**: All data models use `BaseModel` with `ConfigDict(strict=True)` and `Field(...)` validation.
-- **Docstrings**: Google-style docstrings for public functions and classes.
-- **Error handling**: Use the custom exception hierarchy in `citeforge.core.exceptions`. Never swallow unexpected errors silently.
-- **Async**: LLM provider methods are async. Agent `run()` methods are async. Use `asyncio.run()` at sync boundaries.
+- **Absolute imports only**: Use `use citeforge_core::...`. No relative crate imports like `use crate::...` outside the crate.
+- **Error handling**: Use `thiserror` for error types with `#[error(...)]` annotations.
+- **Async**: All agent operations are async using Tokio. Use `#[tokio::async_trait]` for async traits.
 - **Workspace I/O**: All agent state sharing goes through `WorkspaceManager` JSON files. Do not pass large objects between agents in memory.
+- **Documentation**: Use Rustdoc comments (`///`) for public API documentation.
 
 ## Testing Instructions
 
-- Tests are in `tests/` using **pytest**.
-- Current test coverage:
-  - `tests/test_scorer.py` — `RelevanceScorer` unit tests
-  - `tests/test_bibtex.py` — BibTeX export unit tests
-- When adding new features, add corresponding tests.
-- Run the full suite before committing: `pytest`
+- Rust tests use the built-in `#[test]` attribute with `cargo test`.
+- Integration tests live in `tests/` directory at workspace root.
+- Run the full suite before committing: `cargo test --workspace`
 
 ## Critical Constraints
 
-1. **Citation integrity**: Writer Agent citations must use `[index]` format mapping to `literature_pool.json` (1-based). WriterAgent has `_check_citations()` to validate this.
-2. **Absolute imports only**: Never use relative imports within `citeforge/`.
-3. **SHA-256 integrity**: `state.json` records `sha256:<hash>` for every workspace file after each step. `verify_integrity()` detects tampering on resume.
-4. **No LangChain/LangGraph**: The project explicitly forbids these dependencies.
-5. **Workspace directories** (defined in `core/consts.py`):
+1. **Citation integrity**: Writer Agent citations must use `[index]` format mapping to `literature_pool.json` (1-based).
+2. **SHA-256 integrity**: `state.json` records `sha256:<hash>` for every workspace file after each step. `verify_integrity()` detects tampering on resume.
+3. **No Python/LangChain**: The project is a pure Rust/Tauri application. Do not introduce Python or LangChain dependencies.
+4. **Workspace directories** (defined in `citeforge-workspace`):
    - `raw_pdfs/` — input PDFs
-   - `preprocessed/` — extracted text (JSONL)
+   - `preprocessed/` — extracted text (JSON)
    - `vector_index/` — ChromaDB persistence
    - `state.json` — execution state + hashes
    - `literature_pool.json` — verified literature entries
@@ -203,42 +192,32 @@ Optional fields have sensible defaults. See `config.yaml` in the project root fo
 
 ## Security Considerations
 
-- API keys in config are stored with environment variable references (`${PCA_LLM_API_KEY}`) when possible. The CLI masks keys in `config show`.
+- API keys in config are stored with environment variable references (`${LLM_API_KEY}`) when possible.
 - PDF file paths are sanitized before copying to workspace (`..`, `/`, `\` replaced with `_`).
-- Temporary file + atomic replace pattern is used for all workspace JSON writes to prevent corruption.
 - SHA-256 hashes verify workspace file integrity on resume.
 
 ## Module Details
 
-### agents/
-- **ResearcherAgent**: Verifies L2 abstracts against originals via LLM; supplements missing metadata via Semantic Scholar web search.
-- **AnalystAgent**: Clusters literature into themes, extracts trends and research gaps. Uses async `asyncio.gather()` for parallel sub-tasks.
-- **WriterAgent**: Generates structured Markdown drafts (Abstract, Introduction, Methodology, Findings, Discussion, Conclusion). Validates all citations against literature pool size.
+### citeforge-core/
+- **Orchestrator**: State machine managing agent execution pipeline with checkpoint support.
+- **Models**: Core data structures for tasks, literature entries, and agent state.
 
-### ingestion/
-- **parser.py**: Extracts per-page text from PDFs to JSONL. Handles missing text gracefully.
-- **splitter.py**: `RecursiveCharacterTextSplitter` with configurable separators, chunk size, and overlap.
-- **summarizer.py**: `SummarizerModel` generates L1 (one-line) and L2 (paragraph) summaries via LLM prompts.
-- **dedup.py**: `Deduplicator` deduplicates by normalized DOI and title. `Clusterer` supports K-Means or HDBSCAN with sklearn fallback.
+### citeforge-llm/
+- **Providers**: OpenAI, Anthropic, and Ollama provider implementations.
+- **Retry logic**: Built-in exponential backoff via `backoff` crate.
 
-### retrieval/
-- **vector_store.py**: ChromaDB `PersistentClient` wrapper for add/search/reset.
-- **hybrid_search.py**: Self-contained BM25 implementation + vector search fused with Reciprocal Rank Fusion (RRF).
-- **reranker.py**: `RerankerModel` supports local (Ollama) and API (OpenAI-compatible) backends.
-- **scorer.py**: `RelevanceScorer` computes weighted scores from vector similarity, metadata completeness, and citation count (log scale).
+### citeforge-retrieval/
+- **Hybrid search**: Combines BM25 keyword search with vector similarity via Reciprocal Rank Fusion (RRF).
+- **Reranker**: Cross-encoder reranking for improved result quality.
 
-### llm/
-- **base.py**: `BaseProvider` ABC defines `chat()`, `embed()`, `rerank()` with built-in exponential backoff retry logic via `_retry()`.
-- **providers/**: Each provider implements the ABC. `OllamaProvider` is the unified local model backend (chat/embed/rerank endpoints). `OpenAIProvider` and `AnthropicProvider` are for remote APIs.
-- **embedding.py**: `EmbeddingModel` batches texts and routes to local or API provider.
+### citeforge-pdf/
+- **Parser**: Extracts text from PDFs with page-level granularity.
+- **Metadata**: Extracts title, authors, DOI from PDF when available.
 
-### web/
-- **execution.py**: `ExecutionRunner` bridges Streamlit UI with the real OrchestratorEngine and agents. Runs async pipeline in a background thread.
-- **i18n.py**: `T(key)` translation function. Locale precedence: config → `PCA_UI_LOCALE` env → default `zh`.
-- **theme.py**: Monochrome black-and-white CSS with `prefers-color-scheme: dark` support.
+### citeforge-workspace/
+- **Manager**: Handles workspace creation, state persistence, and resume.
+- **Integrity**: SHA-256 hash verification for safe resume capability.
 
 ## Current Status
 
-Implementation is complete through Week 5-6 (CLI skeleton, preprocessing, all three agents, hybrid retrieval, Web UI). The remaining open item is end-to-end integration testing. See `TODO.md` for the full task checklist.
-
-The detailed implementation plan lives at `docs/superpowers/plans/2026-05-06-week1-implementation.md`.
+Implementation is complete. The project uses a Rust/Tauri backend with Next.js frontend. End-to-end integration testing is in progress.
