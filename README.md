@@ -93,18 +93,17 @@ cargo run -- config show
 ## Project Structure
 
 ```
-citeforge/
-├── src/                  # Next.js frontend
+src/                  # Next.js frontend
 │   ├── app/              # App router pages
 │   ├── components/       # React components
 │   ├── hooks/            # Custom React hooks
 │   └── lib/              # Shared utilities
-├── src-tauri/            # Tauri backend
+src-tauri/            # Tauri backend
 │   └── src/
 │       ├── main.rs       # Entry point
 │       ├── lib.rs        # Library exports
 │       └── commands/     # IPC command handlers
-├── crates/               # Rust workspace crates
+crates/               # Rust workspace crates
 │   ├── citeforge-core/   # Core types and state machine
 │   ├── citeforge-llm/    # LLM provider abstraction
 │   ├── citeforge-retrieval/  # Hybrid search and reranking
