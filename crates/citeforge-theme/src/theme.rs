@@ -65,7 +65,7 @@ mod tests {
                 primary: "#6366f1".to_string(),
                 secondary: "#8b5cf6".to_string(),
                 accent: "#f59e0b".to_string(),
-                background: "#0e172a".to_string(),
+                background: "#0f172a".to_string(),
                 surface: "#1e293b".to_string(),
                 card: "#1e293b".to_string(),
                 text_primary: "#f8fafc".to_string(),
