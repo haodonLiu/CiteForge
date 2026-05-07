@@ -8,5 +8,6 @@ members = [
     "crates/citeforge-search",
     "crates/citeforge-workspace",
     "crates/citeforge-chroma",
+    "crates/citeforge-theme",
     "src-tauri",
 ]

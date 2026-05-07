@@ -481,6 +481,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "citeforge-theme"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+]
+
+[[package]]
 name = "citeforge-workspace"
 version = "0.1.0"
 dependencies = [
