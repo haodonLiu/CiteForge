@@ -30,7 +30,9 @@ pub async fn run_task(
         "type": "TaskStarted",
         "payload": { "task_id": &task_id }
     });
-    let _ = app_handle.emit("task-event", event);
+    if let Err(e) = app_handle.emit("task-event", event) {
+        tracing::error!("failed to emit task event: {}", e);
+    }
 
     Ok(TaskResponse {
         task_id,

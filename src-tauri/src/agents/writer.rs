@@ -33,7 +33,7 @@ impl WriterAgent {
 
     fn validate_citations(&self, draft: &str, pool_size: usize) -> Result<(), AgentError> {
         // Check for [N] format citations
-        let citation_regex = regex::Regex::new(r"\[(\d+)\]").unwrap();
+        let citation_regex = regex::Regex::new(r"\[(\d+)\]").expect("citation regex should always be valid");
         let mut errors = Vec::new();
 
         for cap in citation_regex.captures_iter(draft) {
@@ -106,7 +106,7 @@ impl Agent for WriterAgent {
         self.validate_citations(&draft, pool_size)?;
 
         // Count citations
-        let citation_regex = regex::Regex::new(r"\[(\d+)\]").unwrap();
+        let citation_regex = regex::Regex::new(r"\[(\d+)\]").expect("citation regex should always be valid");
         let citation_count = citation_regex.find_iter(&draft).count();
 
         Ok(WriterOutput { draft, citation_count })

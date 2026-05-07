@@ -61,7 +61,9 @@ impl TaskActor {
         };
 
         let event = TaskEvent::TaskStarted { task_id: self.task_id.clone() };
-        self.publish_event(event).await;
+        if let Err(e) = self.publish_event(event).await {
+            tracing::error!("failed to publish task started event: {}", e);
+        }
 
         let result = self.execute_pipeline(&ctx, &mut task).await;
 
@@ -85,7 +87,7 @@ impl TaskActor {
 
         // Phase 1: Researching
         task.transition(TaskState::Researching).map_err(|e| e.to_string())?;
-        self.save_and_publish(task).await;
+        self.save_and_publish(task).await.map_err(|e| e.to_string())?;
 
         let researcher = crate::agents::ResearcherAgent::new(Arc::clone(&self.container));
         let researcher_output = researcher.run(ctx, ResearcherInput {
@@ -98,7 +100,7 @@ impl TaskActor {
 
         // Phase 2: Analyzing
         task.transition(TaskState::Analyzing).map_err(|e| e.to_string())?;
-        self.save_and_publish(task).await;
+        self.save_and_publish(task).await.map_err(|e| e.to_string())?;
 
         let analyst = crate::agents::AnalystAgent::new(Arc::clone(&self.container));
         let analyst_output = analyst.run(ctx, AnalystInput {
@@ -108,7 +110,7 @@ impl TaskActor {
 
         // Phase 3: Writing
         task.transition(TaskState::Writing).map_err(|e| e.to_string())?;
-        self.save_and_publish(task).await;
+        self.save_and_publish(task).await.map_err(|e| e.to_string())?;
 
         let writer = crate::agents::WriterAgent::new(Arc::clone(&self.container));
         let _writer_output = writer.run(ctx, WriterInput {
@@ -124,21 +126,28 @@ impl TaskActor {
     }
 
     async fn complete_task(&self, task: &mut Task) {
-        task.transition(TaskState::Completed).ok();
-        self.save_and_publish(task).await;
+        if let Err(e) = task.transition(TaskState::Completed) {
+            tracing::error!("failed to transition task to Completed: {}", e);
+        }
+        if let Err(e) = self.save_and_publish(task).await {
+            tracing::error!("failed to save and publish task completion: {}", e);
+        }
         counter!("citeforge.task.success", 1);
     }
 
     async fn fail_task(&self, task: &mut Task, error: String) {
-        task.transition(TaskState::Failed { error: error.clone(), retry_count: 0 }).ok();
-        self.save_and_publish(task).await;
+        let new_state = TaskState::Failed { error: error.clone(), retry_count: 0 };
+        if let Err(e) = task.transition(new_state) {
+            tracing::error!("failed to transition task to Failed: {}", e);
+        }
+        if let Err(e) = self.save_and_publish(task).await {
+            tracing::error!("failed to save and publish task failure: {}", e);
+        }
         counter!("citeforge.task.failed", 1, "error" => error);
     }
 
-    async fn save_and_publish(&self, task: &Task) {
-        if let Err(e) = self.db.save_task(task).await {
-            tracing::error!("failed to save task: {}", e);
-        }
+    async fn save_and_publish(&self, task: &Task) -> Result<(), String> {
+        self.db.save_task(task).await.map_err(|e| e.to_string())?;
 
         let event = match &task.state {
             TaskState::Completed => TaskEvent::TaskCompleted { task_id: task.id.clone() },
@@ -147,22 +156,22 @@ impl TaskActor {
                 if let Some(agent) = agent_type_for_state(state) {
                     TaskEvent::AgentCompleted { task_id: task.id.clone(), agent }
                 } else {
-                    return;
+                    return Ok(());
                 }
             }
         };
 
-        self.publish_event(event).await;
+        self.publish_event(event).await
     }
 
-    async fn publish_event(&self, event: TaskEvent) {
-        if let Err(e) = self.event_sender.send(event.clone()) {
-            tracing::error!("failed to publish event: {}", e);
-        }
+    async fn publish_event(&self, event: TaskEvent) -> Result<(), String> {
+        self.event_sender.send(event.clone())
+            .map_err(|e| format!("failed to publish event: {}", e))?;
 
-        if let Err(e) = self.db.append_event(&self.task_id, &event).await {
-            tracing::error!("failed to persist event: {}", e);
-        }
+        self.db.append_event(&self.task_id, &event).await
+            .map_err(|e| format!("failed to persist event: {}", e))?;
+
+        Ok(())
     }
 }
 

@@ -29,10 +29,12 @@ impl AppContainer {
 
         let llm_registry = LlmRegistry::new();
 
+        let api_key = config.llm.api_key.clone()
+            .context("api_key is required but not configured")?;
         let provider_config = citeforge_core::ports::ProviderConfig {
             provider_type: format!("{:?}", config.llm.provider).to_lowercase(),
             base_url: Some(config.llm.base_url.clone()),
-            api_key: Some(config.llm.api_key.clone().unwrap_or_default()),
+            api_key: Some(api_key),
             model: Some(config.llm.model.clone()),
             timeout_secs: config.llm.timeout_secs,
         };
@@ -52,9 +54,8 @@ impl AppContainer {
             "citeforge".to_string(),
             1536,
         );
-        if let Err(e) = chroma_store.ensure_collection().await {
-            tracing::warn!("failed to ensure chroma collection: {}", e);
-        }
+        chroma_store.ensure_collection().await
+            .context("failed to ensure chroma collection")?;
         let vector_store: Arc<dyn VectorStore<Error = ChromaError>> = Arc::new(chroma_store);
 
         let pdf_parser: Arc<dyn DocumentParser> = Arc::new(PdfParser);
