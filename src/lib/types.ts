@@ -120,6 +120,7 @@ export interface Literature {
   source: string;
   imported_at: string;
   read_progress: number;
+  read_status: 'Unread' | 'Reading' | 'Read' | 'ToRead' | 'Archived';
 }
 
 export interface Author {
