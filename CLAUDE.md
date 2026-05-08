@@ -5,10 +5,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Quick Start
 
 ```bash
-cargo build --release        # Build Tauri application
-cargo run -- --help          # CLI help
-cd src && npm install         # Install frontend dependencies
-cd src && npm run dev         # Frontend dev server
+./build.sh                     # Build exe (release)
+./build.sh --debug             # Build exe (debug)
+cd src && npm run dev          # Frontend dev server (Vite)
+cargo test --workspace         # Run all tests
 ```
 
 ## Key Commands
@@ -28,4 +28,4 @@ cargo test --workspace                      # Run all tests
 
 ## Tech Stack (Locked)
 
-Rust (2021), Tauri 2, Next.js 14, React 18, TypeScript, SQLite, ChromaDB. No Python/LangChain/LangGraph.
+Rust (2021), Tauri 2, Vite, React 18, React Router, TypeScript, SQLite, ChromaDB. No Python/LangChain/LangGraph.
