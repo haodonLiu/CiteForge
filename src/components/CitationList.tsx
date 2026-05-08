@@ -1,5 +1,3 @@
-'use client';
-
 interface Citation {
   index: number;
   title: string;

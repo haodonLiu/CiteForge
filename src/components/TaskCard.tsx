@@ -1,5 +1,3 @@
-'use client';
-
 import type { TaskState } from '@/lib/types';
 
 interface TaskCardProps {
