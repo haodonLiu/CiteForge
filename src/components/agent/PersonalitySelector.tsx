@@ -1,5 +1,3 @@
-'use client';
-
 import { AgentPersonality } from '@/lib/types';
 
 interface PersonalitySelectorProps {

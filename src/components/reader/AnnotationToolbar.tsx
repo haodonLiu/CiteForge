@@ -1,5 +1,3 @@
-'use client';
-
 interface AnnotationToolbarProps {
   onAddHighlight: () => void;
   onAddUnderline: () => void;

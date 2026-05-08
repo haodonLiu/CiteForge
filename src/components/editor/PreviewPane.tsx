@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useRef } from 'react';
 import { marked } from 'marked';
 import katex from 'katex';

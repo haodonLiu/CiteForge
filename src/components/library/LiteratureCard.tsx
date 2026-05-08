@@ -1,5 +1,3 @@
-'use client';
-
 import { Literature } from '@/lib/types';
 
 interface LiteratureCardProps {

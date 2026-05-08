@@ -1,19 +1,16 @@
-'use client';
-
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { Link, useLocation } from 'react-router-dom';
 
 const navItems = [
-  { href: '/', label: '首页', icon: '🏠' },
-  { href: '/library', label: '文献库', icon: '📚' },
-  { href: '/reader', label: '阅读器', icon: '📖' },
-  { href: '/editor', label: '编辑器', icon: '✏️' },
-  { href: '/agent', label: 'Agent', icon: '🤖' },
-  { href: '/settings', label: '设置', icon: '⚙️' },
+  { to: '/', label: '首页', icon: '🏠' },
+  { to: '/library', label: '文献库', icon: '📚' },
+  { to: '/reader/1', label: '阅读器', icon: '📖' },
+  { to: '/editor/1', label: '编辑器', icon: '✏️' },
+  { to: '/agent', label: 'Agent', icon: '🤖' },
+  { to: '/settings', label: '设置', icon: '⚙️' },
 ];
 
 export default function Sidebar() {
-  const pathname = usePathname();
+  const { pathname } = useLocation();
 
   return (
     <aside className="w-64 h-screen bg-surface border-r border-border flex flex-col">
@@ -25,11 +22,11 @@ export default function Sidebar() {
       <nav className="flex-1 p-4">
         <ul className="space-y-2">
           {navItems.map((item) => (
-            <li key={item.href}>
+            <li key={item.to}>
               <Link
-                href={item.href}
+                to={item.to}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                  pathname === item.href
+                  pathname === item.to
                     ? 'bg-primary text-white'
                     : 'text-secondary hover:bg-surface-hover'
                 }`}

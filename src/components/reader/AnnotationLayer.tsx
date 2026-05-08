@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import { Annotation } from '@/lib/types';
 

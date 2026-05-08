@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import { Literature } from '@/lib/types';
 import LiteratureCard from './LiteratureCard';
