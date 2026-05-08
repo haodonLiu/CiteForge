@@ -10,5 +10,6 @@ members = [
     "crates/citeforge-chroma",
     "crates/citeforge-theme",
     "crates/citeforge-memory",
+    "crates/citeforge-plugin",
     "src-tauri",
 ]
