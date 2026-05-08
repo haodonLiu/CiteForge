@@ -2,6 +2,7 @@ pub mod application;
 pub mod config;
 pub mod domain;
 pub mod presentation;
+pub mod agent;
 pub mod agents;
 pub mod metrics;
 pub mod workspace {

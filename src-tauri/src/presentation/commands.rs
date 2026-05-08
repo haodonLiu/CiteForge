@@ -65,3 +65,38 @@ pub async fn get_task_status(
         status: format!("{:?}", task.state),
     })
 }
+
+#[tauri::command]
+pub async fn get_agent_context() -> Result<String, String> {
+    let config_dir = crate::agent::AgentContext::default_config_dir();
+    let context = crate::agent::AgentContext::load_from_path(&config_dir)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(serde_json::to_string(&context).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command]
+pub async fn get_agent_personalities() -> Result<String, String> {
+    let personalities = vec![
+        crate::agent::personality::AgentPersonality::strict_scholar(),
+        crate::agent::personality::AgentPersonality::motivational_mentor(),
+        crate::agent::personality::AgentPersonality::critical_thinker(),
+    ];
+    Ok(serde_json::to_string(&personalities).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command]
+pub async fn get_current_theme() -> Result<String, String> {
+    Ok("midnight_scholar".to_string())
+}
+
+#[tauri::command]
+pub async fn set_theme(theme_id: String) -> Result<(), String> {
+    // TODO: Save to config
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn list_plugins() -> Result<String, String> {
+    Ok("[]".to_string())
+}

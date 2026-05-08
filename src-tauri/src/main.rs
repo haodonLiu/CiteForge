@@ -4,6 +4,7 @@ mod application;
 mod config;
 mod domain;
 mod presentation;
+mod agent;
 mod agents;
 mod metrics;
 pub mod workspace {
@@ -33,6 +34,11 @@ async fn main() -> anyhow::Result<()> {
             commands::run_task,
             commands::resume_task,
             commands::get_task_status,
+            commands::get_agent_context,
+            commands::get_agent_personalities,
+            commands::get_current_theme,
+            commands::set_theme,
+            commands::list_plugins,
         ])
         .run(tauri::generate_context!())
         .context("failed to run tauri application")?;
