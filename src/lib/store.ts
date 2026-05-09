@@ -14,6 +14,14 @@ interface Task {
   error?: string;
 }
 
+interface Activity {
+  id: string;
+  timestamp: number;
+  type: 'task_created' | 'literature_added' | 'draft_generated' | 'checkpoint_reached';
+  description: string;
+  taskId?: string;
+}
+
 interface AppStore {
   theme: AppTheme;
   setTheme: (theme: AppTheme) => void;
@@ -21,6 +29,8 @@ interface AppStore {
 
   tasks: Record<string, Task>;
   currentTaskId: string | null;
+  activities: Activity[];
+  addActivity: (activity: Omit<Activity, 'id' | 'timestamp'>) => void;
 
   addTask: (task: Task) => void;
   updateTask: (id: string, updates: Partial<Task>) => void;
@@ -50,6 +60,20 @@ export const useAppStore = create<AppStore>((set) => ({
 
   tasks: {},
   currentTaskId: null,
+
+  activities: [],
+
+  addActivity: (activity) =>
+    set((state) => ({
+      activities: [
+        {
+          ...activity,
+          id: `act-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          timestamp: Date.now(),
+        },
+        ...state.activities.slice(0, 19),
+      ],
+    })),
 
   addTask: (task) =>
     set((state) => ({
