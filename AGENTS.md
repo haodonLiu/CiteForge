@@ -15,7 +15,7 @@ Core design goals:
 ## Tech Stack
 
 - **Backend**: Rust (2021 edition), Tauri 2
-- **Frontend**: Next.js 14, React 18, TypeScript
+- **Frontend**: Vite, React 18, TypeScript
 - **Database**: SQLite (rusqlite), ChromaDB (vector store)
 - **PDF Parsing**: pdf-extract crate
 - **LLM**: Async providers with retry logic (OpenAI-compatible, Anthropic, Ollama)
@@ -25,7 +25,7 @@ Core design goals:
 ## Architecture
 
 ```
-Next.js Frontend (React)
+Vite/React Frontend
          │
          ▼
 Tauri IPC Commands
@@ -48,12 +48,8 @@ Agents communicate via shared workspace JSON files, not in-memory state.
 
 ```
 citeforge/
-├── src/                      # Next.js frontend
-│   ├── app/                  # App router pages
-│   │   ├── page.tsx          # Home page
-│   │   ├── documents/        # Document upload page
-│   │   ├── monitoring/       # Task monitoring page
-│   │   └── preview/          # Preview page
+├── src/                      # Vite/React frontend
+│   ├── pages/                # Route pages (React Router)
 │   ├── components/           # React components
 │   ├── hooks/                # Custom hooks
 │   └── lib/                  # Shared utilities
@@ -138,7 +134,7 @@ cargo run -- config init
 ```bash
 cd src
 npm install
-npm run dev      # Development server on http://localhost:3000
+npm run dev      # Development server on http://localhost:5173
 npm run build    # Production build
 ```
 
@@ -220,4 +216,4 @@ Optional fields have sensible defaults. See `config.yaml` in the project root fo
 
 ## Current Status
 
-Implementation is complete. The project uses a Rust/Tauri backend with Next.js frontend. End-to-end integration testing is in progress.
+Implementation is complete. The project uses a Rust/Tauri backend with Vite/React frontend. End-to-end integration testing is in progress.

@@ -20,7 +20,7 @@ Writing a literature review is tedious: hundreds of papers, scattered notes, and
 
 ```
 +------------------+
-|  Next.js Frontend |   (React + TypeScript)
+|  Vite Frontend    |   (React + TypeScript)
 +--------+---------+
          │
          ▼
@@ -50,7 +50,7 @@ Writing a literature review is tedious: hundreds of papers, scattered notes, and
 ## Tech Stack
 
 - **Backend**: Rust, Tauri 2
-- **Frontend**: Next.js 14, React, TypeScript
+- **Frontend**: Vite, React, TypeScript
 - **Database**: SQLite (workspace), ChromaDB (vectors)
 - **PDF Parsing**: pdf-extract (Rust)
 - **LLM**: OpenAI-compatible / Anthropic / Ollama
@@ -71,12 +71,11 @@ Writing a literature review is tedious: hundreds of papers, scattered notes, and
 # Install frontend dependencies
 cd src && npm install
 
-# Build the Tauri application
-cargo build --release
+# Development mode
+cargo tauri dev           # Full stack with hot reload
 
-# Run development mode
-cargo run -- --dev        # Tauri dev mode with hot reload
-cd src && npm run dev     # Frontend dev server (port 3000)
+# Build release
+cargo tauri build         # Produces Windows installer
 ```
 
 ### CLI Commands
@@ -93,8 +92,8 @@ cargo run -- config show
 ## Project Structure
 
 ```
-src/                  # Next.js frontend
-│   ├── app/              # App router pages
+src/                  # Vite/React frontend
+│   ├── pages/            # Route pages (React Router)
 │   ├── components/       # React components
 │   ├── hooks/            # Custom React hooks
 │   └── lib/              # Shared utilities
