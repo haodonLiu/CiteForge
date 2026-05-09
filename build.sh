@@ -8,32 +8,31 @@ OUT_DIR="$ROOT_DIR/dist"
 echo "🔨 CiteForge 构建开始..."
 echo "模式: $MODE"
 
-# 1. 前端构建
+# 1. 前端依赖安装
 echo ""
-echo "📦 [1/3] 构建前端..."
+echo "📦 [1/2] 安装前端依赖..."
 cd "$ROOT_DIR/src"
 npm install --silent
-npm run build
-echo "✅ 前端构建完成"
+echo "✅ 依赖安装完成"
 
-# 2. Rust 后端构建
+# 2. Tauri 构建（自动通过 beforeBuildCommand 构建前端）
 echo ""
-echo "🦀 [2/3] 构建 Rust 后端..."
+echo "🦀 [2/2] 构建应用..."
 cd "$ROOT_DIR/src-tauri"
 if [ "$MODE" = "--debug" ]; then
-  cargo build
+  cargo tauri build --debug
 else
-  cargo build --release
+  cargo tauri build
 fi
-echo "✅ Rust 构建完成"
+echo "✅ 构建完成"
 
 # 3. 收集构建产物
 echo ""
-echo "📁 [3/3] 收集构建产物..."
+echo "📁 收集构建产物..."
 mkdir -p "$OUT_DIR"
-BUNDLE_DIR="target/release/bundle"
+BUNDLE_DIR="$ROOT_DIR/target/release/bundle"
 if [ "$MODE" = "--debug" ]; then
-  BUNDLE_DIR="target/debug/bundle"
+  BUNDLE_DIR="$ROOT_DIR/target/debug/bundle"
 fi
 
 if [ -d "$BUNDLE_DIR" ]; then

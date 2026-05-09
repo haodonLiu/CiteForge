@@ -4,10 +4,19 @@
   "version": "0.1.0",
   "identifier": "com.citeforge.app",
   "build": {
-    "beforeBuildCommand": "cd src && npm run build",
-    "beforeDevCommand": "cd src && npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev",
     "frontendDist": "../out",
     "devUrl": "http://localhost:5173"
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": [
+      "icons/icon.png"
+    ],
+    "category": "DeveloperTool",
+    "shortDescription": "CiteForge - 科研助手终端"
   },
   "app": {
     "windows": [{
@@ -15,7 +24,8 @@
       "width": 1200,
       "height": 800,
       "minWidth": 800,
-      "minHeight": 600
+      "minHeight": 600,
+      "decorations": false
     }]
   }
 }

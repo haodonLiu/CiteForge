@@ -11,6 +11,7 @@ citeforge-pdf = { path = "../crates/citeforge-pdf" }
 citeforge-search = { path = "../crates/citeforge-search" }
 citeforge-workspace = { path = "../crates/citeforge-workspace" }
 citeforge-chroma = { path = "../crates/citeforge-chroma" }
+lopdf = "0.32"
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -31,6 +32,8 @@ rustls = "0.22"
 regex = "1"
 async-trait = "0.1"
 tokio-util = { version = "0.7", features = ["rt"] }
+dirs = "5"
+futures = "0.3"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
