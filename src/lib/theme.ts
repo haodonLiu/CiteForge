@@ -20,7 +20,10 @@ export const setTheme = (theme: AppTheme) => {
     window.monaco.editor.setTheme(monacoTheme);
   }
 
-  invoke('set_setting', { key: 'theme', value: theme }).catch(console.error);
+  // Only invoke in Tauri environment
+  if (typeof window.__TAURI__ !== 'undefined') {
+    invoke('set_setting', { key: 'theme', value: theme }).catch(console.error);
+  }
 };
 
 export const getStoredTheme = (): AppTheme | null => {

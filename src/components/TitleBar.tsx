@@ -41,6 +41,9 @@ export function TitleBar() {
 
   // Fetch time status including silent threshold from backend
   useEffect(() => {
+    // Only run in Tauri environment
+    if (typeof window.__TAURI__ === 'undefined') return;
+
     const fetchTimeStatus = async () => {
       try {
         const response = await invoke<TimeStatusResponse>('get_time_status');
@@ -95,6 +98,8 @@ export function TitleBar() {
       silentModeRef.current = false;
       setStatus(prev => ({ ...prev, silent_mode: false }));
     }
+    // Only invoke in Tauri environment
+    if (typeof window.__TAURI__ === 'undefined') return;
     try {
       await invoke('record_activity');
     } catch (e) {
@@ -120,6 +125,9 @@ export function TitleBar() {
     const dragRegion = dragRegionRef.current;
     if (!dragRegion) return;
 
+    // Only run in Tauri environment
+    if (typeof window.__TAURI__ === 'undefined') return;
+
     const win = getCurrentWindow();
     dragRegion.addEventListener('mousedown', (e) => {
       if (e.buttons === 1) {
@@ -132,10 +140,17 @@ export function TitleBar() {
     });
   }, []);
 
-  // Window controls
-  const handleMinimize = useCallback(() => getCurrentWindow().minimize(), []);
-  const handleMaximize = useCallback(() => getCurrentWindow().toggleMaximize(), []);
-  const handleClose = useCallback(() => getCurrentWindow().close(), []);
+  // Window controls - only available in Tauri
+  const isTauri = typeof window.__TAURI__ !== 'undefined';
+  const handleMinimize = useCallback(() => {
+    if (isTauri) getCurrentWindow().minimize();
+  }, [isTauri]);
+  const handleMaximize = useCallback(() => {
+    if (isTauri) getCurrentWindow().toggleMaximize();
+  }, [isTauri]);
+  const handleClose = useCallback(() => {
+    if (isTauri) getCurrentWindow().close();
+  }, [isTauri]);
 
   // Format time
   const formatTime = (date: Date) => {

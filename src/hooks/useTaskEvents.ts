@@ -7,6 +7,9 @@ export function useTaskEvents() {
   const updateTaskFromEvent = useAppStore((s) => s.updateTaskFromEvent);
 
   useEffect(() => {
+    // Only run in Tauri environment
+    if (typeof window.__TAURI__ === 'undefined') return;
+
     const unlisten = listen<TaskEvent>('task-event', (event) => {
       updateTaskFromEvent(event.payload);
     });
