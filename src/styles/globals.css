@@ -1,5 +1,38 @@
 @import "tailwindcss";
 
+/* Define default CSS variables for Tailwind v4 */
+:root {
+  --color-primary: #8b7355;
+  --color-secondary: #6b4423;
+  --color-accent: #c9a962;
+  --color-background: #faf8f5;
+  --color-surface: #f5f2ed;
+  --color-surface-hover: #ebe6df;
+  --color-card: #ffffff;
+  --color-border: #e0d8cc;
+  --color-text-primary: #1a1915;
+  --color-text-secondary: #4a4640;
+  --color-text-muted: #8a857a;
+  --color-success: #4a7c59;
+  --color-warning: #b8860b;
+  --color-error: #a63d40;
+  --color-info: #5c6b8a;
+  --color-highlight: #f0e6d3;
+  --color-selection: #c9a962;
+  --color-link: #6b5344;
+  --color-code-background: #f0ebe4;
+
+  --font-sans: 'Crimson Pro', 'Crimson Text', Georgia, 'Times New Roman', serif;
+  --font-serif: 'Crimson Pro', 'Crimson Text', Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-size-base: 14px;
+  --line-height: 1.75;
+
+  --spacing-unit: 4px;
+  --radius: 4px;
+  --gap: 16px;
+}
+
 @theme {
   --color-primary: var(--color-primary);
   --color-secondary: var(--color-secondary);
