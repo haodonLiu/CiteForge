@@ -35,11 +35,36 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 // Mock for @tauri-apps/plugin-dialog in browser dev mode
-export function open(_options) {
+// Opens real browser file picker, returns fake paths for backend mock
+export function open(options) {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
-            console.log('[Mock] open dialog');
-            return [2 /*return*/, null];
+            return [2 /*return*/, new Promise(function (resolve) {
+                    var _a, _b, _c;
+                    var input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = ((_c = (_b = (_a = options === null || options === void 0 ? void 0 : options.filters) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.extensions) === null || _c === void 0 ? void 0 : _c.map(function (e) { return ".".concat(e); }).join(',')) || '*/*';
+                    input.multiple = (options === null || options === void 0 ? void 0 : options.multiple) || false;
+                    input.style.display = 'none';
+                    document.body.appendChild(input);
+                    input.addEventListener('change', function () {
+                        var files = input.files;
+                        if (files && files.length > 0) {
+                            // Return fake absolute paths for mock backend
+                            var paths = Array.from(files).map(function (f) { return "/mock/pdfs/".concat(f.name); });
+                            resolve((options === null || options === void 0 ? void 0 : options.multiple) ? paths : paths[0] || null);
+                        }
+                        else {
+                            resolve(null);
+                        }
+                        document.body.removeChild(input);
+                    });
+                    input.addEventListener('cancel', function () {
+                        resolve(null);
+                        document.body.removeChild(input);
+                    });
+                    input.click();
+                })];
         });
     });
 }
@@ -54,7 +79,7 @@ export function save(_options) {
 export function message(_message, _options) {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
-            console.log('[Mock] message:', _message);
+            alert(_message);
             return [2 /*return*/];
         });
     });
@@ -62,16 +87,14 @@ export function message(_message, _options) {
 export function ask(_message, _options) {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
-            console.log('[Mock] ask:', _message);
-            return [2 /*return*/, false];
+            return [2 /*return*/, window.confirm(_message)];
         });
     });
 }
 export function confirm(_message, _options) {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
-            console.log('[Mock] confirm:', _message);
-            return [2 /*return*/, false];
+            return [2 /*return*/, window.confirm(_message)];
         });
     });
 }
