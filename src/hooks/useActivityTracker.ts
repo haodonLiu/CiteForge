@@ -56,7 +56,7 @@ export function getWeekData(): { date: string; label: string; minutes: number }[
     const dateStr = d.toISOString().slice(0, 10);
     result.push({
       date: dateStr,
-      label: days[d.getDay()],
+      label: days[d.getDay()] ?? '',
       minutes: getWorkTimeForDay(dateStr),
     });
   }

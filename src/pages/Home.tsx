@@ -4,13 +4,9 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import {
   FileText,
-  Globe,
   Plus,
-  ArrowRight,
   BookOpen,
-  Bot,
   CheckCircle,
-  Clock,
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import { StatusBadge, taskStatusToPhase } from '@/components/ui/StatusBadge';
@@ -28,7 +24,35 @@ export default function Home({ recentLiterature = [] }: HomeProps) {
   const tasks = useAppStore((s) => s.tasks);
   const addActivity = useAppStore((s) => s.addActivity);
 
-  const activeReviews = Object.values(tasks);
+  // Filter to only in-progress tasks (exclude completed/failed)
+  const activeReviews = Object.values(tasks).filter(
+    t => t.status !== 'Completed' && t.status !== 'Failed'
+  );
+
+  const [totalWords, setTotalWords] = useState(0);
+
+  // Fetch draft stats when activeReviews changes
+  useEffect(() => {
+    const fetchDraftStats = async () => {
+      if (activeReviews.length === 0) {
+        setTotalWords(0);
+        return;
+      }
+      try {
+        // Get first active task's workspace for word count
+        if (activeReviews.length === 0) return;
+        const workspaceId = activeReviews[0]?.id;
+        const stats = await invoke<{ total_words: number }>('get_draft_stats', {
+          workspace_id: workspaceId
+        });
+        setTotalWords(stats.total_words);
+      } catch (e) {
+        console.error('Failed to fetch draft stats:', e);
+        setTotalWords(0);
+      }
+    };
+    fetchDraftStats();
+  }, [activeReviews]);
   const today = new Date().toISOString().slice(0, 10);
   const weekData = getWeekData();
   const todayMinutes = getWorkTimeForDay(today);
@@ -75,8 +99,7 @@ export default function Home({ recentLiterature = [] }: HomeProps) {
   };
 
   const totalWeekMinutes = weekData.reduce((sum, d) => sum + d.minutes, 0);
-  const completedCount = activeReviews.filter(t => t.status === 'Completed').length;
-  const totalWords = 0; // Will be populated by get_draft_stats
+  const completedCount = Object.values(tasks).filter(t => t.status === 'Completed').length;
 
   return (
     <div className="h-full overflow-auto p-6">
@@ -238,13 +261,14 @@ export default function Home({ recentLiterature = [] }: HomeProps) {
 }
 
 function ActivityIcon({ type }: { type: string }) {
+  const defaultIcon = { icon: Plus, className: 'text-primary' };
   const config: Record<string, { icon: typeof BookOpen; className: string }> = {
-    task_created: { icon: Plus, className: 'text-primary' },
+    task_created: defaultIcon,
     literature_added: { icon: BookOpen, className: 'text-info' },
     draft_generated: { icon: FileText, className: 'text-success' },
     checkpoint_reached: { icon: CheckCircle, className: 'text-warning' },
   };
-  const { icon: Icon, className } = config[type] || config.task_created;
+  const { icon: Icon, className } = config[type] ?? defaultIcon;
   return <Icon size={12} className={className} />;
 }
 

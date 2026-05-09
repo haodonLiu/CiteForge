@@ -96,6 +96,11 @@ pub async fn get_draft_stats(
     workspace_id: String,
     container: State<'_, Arc<AppContainer>>,
 ) -> Result<DraftStats, String> {
+    // Validate workspace_id to prevent path traversal
+    if workspace_id.contains('/') || workspace_id.contains('\\') || workspace_id.contains("..") {
+        return Err("invalid workspace_id".to_string());
+    }
+
     let draft_path = container.config.workspace.root.join(&workspace_id).join("draft.md");
 
     let content = tokio::fs::read_to_string(&draft_path)

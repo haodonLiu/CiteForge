@@ -261,9 +261,6 @@ export function TitleBar() {
           )}
         </div>
       </div>
-
-      {/* Spacer for buttons */}
-      <div className="w-[104px]" />
     </div>
   );
 }

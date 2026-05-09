@@ -64,9 +64,33 @@ export function TitleBar() {
     var _a = useState(new Date()), currentTime = _a[0], setCurrentTime = _a[1];
     var _b = useState(defaultStatus), status = _b[0], setStatus = _b[1];
     var _c = useState(0), todayMinutes = _c[0], setTodayMinutes = _c[1];
+    var _d = useState(5 * 60 * 1000), silentThresholdMs = _d[0], setSilentThresholdMs = _d[1];
     var currentTaskId = useAppStore(function (s) { return s.currentTaskId; });
     var tasks = useAppStore(function (s) { return s.tasks; });
-    var SILENT_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+    // Fetch time status including silent threshold from backend
+    useEffect(function () {
+        var fetchTimeStatus = function () { return __awaiter(_this, void 0, void 0, function () {
+            var response, e_1;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        _a.trys.push([0, 2, , 3]);
+                        return [4 /*yield*/, invoke('get_time_status')];
+                    case 1:
+                        response = _a.sent();
+                        setSilentThresholdMs(response.silent_threshold_minutes * 60 * 1000);
+                        setTodayMinutes(response.today_minutes);
+                        return [3 /*break*/, 3];
+                    case 2:
+                        e_1 = _a.sent();
+                        console.error('Failed to fetch time status:', e_1);
+                        return [3 /*break*/, 3];
+                    case 3: return [2 /*return*/];
+                }
+            });
+        }); };
+        fetchTimeStatus();
+    }, []);
     // Time update
     useEffect(function () {
         var timer = setInterval(function () {
@@ -92,17 +116,17 @@ export function TitleBar() {
     useEffect(function () {
         var checkSilent = function () {
             var idle = Date.now() - lastActivityRef.current;
-            if (idle >= SILENT_THRESHOLD_MS && !silentModeRef.current) {
+            if (idle >= silentThresholdMs && !silentModeRef.current) {
                 silentModeRef.current = true;
                 setStatus(function (prev) { return (__assign(__assign({}, prev), { silent_mode: true })); });
             }
         };
         var interval = setInterval(checkSilent, 10000);
         return function () { return clearInterval(interval); };
-    }, []);
+    }, [silentThresholdMs]);
     // Record activity
     var recordActivity = useCallback(function () { return __awaiter(_this, void 0, void 0, function () {
-        var e_1;
+        var e_2;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -119,8 +143,8 @@ export function TitleBar() {
                     _a.sent();
                     return [3 /*break*/, 4];
                 case 3:
-                    e_1 = _a.sent();
-                    console.error('Failed to record activity:', e_1);
+                    e_2 = _a.sent();
+                    console.error('Failed to record activity:', e_2);
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -196,7 +220,7 @@ export function TitleBar() {
     };
     var getStatusSubtext = function () {
         if (status.silent_mode) {
-            return '5分钟无操作';
+            return "".concat(silentThresholdMs / 60000, "\u5206\u949F\u65E0\u64CD\u4F5C");
         }
         if (status.mode === 'task') {
             return '处理中...';
