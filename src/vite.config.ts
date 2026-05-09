@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
@@ -12,5 +13,22 @@ export default defineConfig({
   build: {
     outDir: '../out',
     emptyOutDir: true,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: 'vendor-react',
+              test: /[\\/]node_modules[\\/](react|react-dom|react-router-dom)[\\/]/,
+            },
+            {
+              name: 'vendor-math',
+              test: /[\\/]node_modules[\\/](katex|marked|dompurify)[\\/]/,
+            },
+          ],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 500,
   },
 });

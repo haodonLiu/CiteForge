@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { useParams } from 'react-router-dom';
-import MarkdownEditor from '@/components/editor/MarkdownEditor';
-import PreviewPane from '@/components/editor/PreviewPane';
+import Button from '@/components/ui/Button';
+
+const MarkdownEditor = lazy(() => import('@/components/editor/MarkdownEditor'));
+const PreviewPane = lazy(() => import('@/components/editor/PreviewPane'));
 
 export default function Editor() {
   const { id } = useParams<{ id: string }>();
@@ -10,23 +12,24 @@ export default function Editor() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between p-4 border-b border-border">
-        <h1 className="text-xl font-semibold">编辑器</h1>
-        <button
-          onClick={() => setShowPreview(!showPreview)}
-          className="px-3 py-1 rounded bg-surface hover:bg-surface-hover"
-        >
+      <div className="flex items-center justify-between p-3 border-b border-border">
+        <h1 className="text-lg font-bold text-text-primary">编辑器</h1>
+        <Button size="sm" onClick={() => setShowPreview(!showPreview)}>
           {showPreview ? '隐藏预览' : '显示预览'}
-        </button>
+        </Button>
       </div>
 
       <div className="flex-1 flex">
         <div className={`${showPreview ? 'w-1/2' : 'w-full'} border-r border-border`}>
-          <MarkdownEditor content={content} onChange={setContent} />
+          <Suspense fallback={<div className="p-4 text-text-secondary text-sm">Loading editor...</div>}>
+            <MarkdownEditor content={content} onChange={setContent} />
+          </Suspense>
         </div>
         {showPreview && (
           <div className="w-1/2 overflow-auto bg-card">
-            <PreviewPane content={content} />
+            <Suspense fallback={<div className="p-4 text-text-secondary text-sm">Loading preview...</div>}>
+              <PreviewPane content={content} />
+            </Suspense>
           </div>
         )}
       </div>
