@@ -1,4 +1,4 @@
-# Dashboard Redesign Spec (Revised)
+# Dashboard Redesign Spec (v3)
 
 ## Overview
 
@@ -17,21 +17,28 @@ Transform the home page into a research dashboard that matches academic workflow
 
 ### Section 1: Quick Start (Top, always visible for new users)
 
-Three cards in a grid:
-- **导入 PDF** — Start from local files
-- **Semantic Scholar** — Search and import online
-- **新建空白综述** — Create from scratch
+Three cards in a grid with explicit click behaviors:
+
+| Card | Label | Click Behavior |
+|------|-------|----------------|
+| 📄 | 导入 PDF | Open system file picker (`dialog.open`), multi-select PDFs, create task, navigate to Library |
+| 🌐 | Semantic Scholar | Open search modal or navigate to Library with search focused |
+| ➕ | 新建空白综述 | Create empty task, navigate to Editor |
 
 ```tsx
-<div className="grid grid-cols-3 gap-4 mb-8">
-  {quickStart.map((item) => (
-    <Card key={item.label} clickable className="p-4">
-      <div className="text-2xl mb-2">{item.emoji}</div>
-      <h3 className="font-medium text-text-primary">{item.label}</h3>
-      <p className="text-xs text-text-muted mt-1">{item.desc}</p>
-    </Card>
-  ))}
-</div>
+// Quick Start click handlers
+const handleImportPdf = async () => {
+  const selected = await open({ multiple: true, filters: [{ name: 'PDF', extensions: ['pdf'] }] });
+  if (selected) {
+    const task = await invoke('create_task', { sources: selected });
+    navigate(`/library?task=${task.id}`);
+  }
+};
+
+const handleNewReview = async () => {
+  const task = await invoke('create_task', {});
+  navigate(`/editor/${task.id}`);
+};
 ```
 
 ### Section 2: Active Reviews (Core content)
@@ -116,7 +123,7 @@ addActivity: (activity: Omit<Activity, 'id' | 'timestamp'>) => void;
 </div>
 ```
 
-**Future**: Migrate to SQLite-backed event log (方案 B) when `events.log` architecture lands.
+**Future**: Migrate to SQLite-backed event log when `events.log` architecture lands.
 
 ---
 
@@ -125,6 +132,50 @@ addActivity: (activity: Omit<Activity, 'id' | 'timestamp'>) => void;
 ### Work Time — Weekly Bar Chart (not GitHub heatmap)
 
 **Why**: Academic writing is episodic, not daily. Blank heatmap cells create anxiety.
+
+**Implementation**: `useActivityTracker` hook with localStorage persistence.
+
+```tsx
+// src/hooks/useActivityTracker.ts
+const IDLE_TIMEOUT = 5 * 60 * 1000; // 5 分钟无操作视为离开
+
+export function useActivityTracker() {
+  const lastActive = useRef(Date.now());
+  const todayMinutes = useRef(0);
+
+  useEffect(() => {
+    const events = ['mousedown', 'keydown', 'scroll', 'mousemove'];
+
+    const updateActivity = () => {
+      const now = Date.now();
+      const idle = now - lastActive.current;
+      if (idle < IDLE_TIMEOUT) {
+        todayMinutes.current += idle / 1000 / 60;
+      }
+      lastActive.current = now;
+    };
+
+    // 每分钟保存到 localStorage
+    const interval = setInterval(() => {
+      const today = new Date().toISOString().slice(0, 10);
+      const stored = localStorage.getItem(`worktime-${today}`);
+      const current = stored ? parseInt(stored, 10) : 0;
+      localStorage.setItem(`worktime-${today}`, Math.floor(current + todayMinutes.current));
+      todayMinutes.current = 0;
+    }, 60 * 1000);
+
+    events.forEach(e => window.addEventListener(e, updateActivity, { passive: true });
+    return () => {
+      clearInterval(interval);
+      events.forEach(e => window.removeEventListener(e, updateActivity));
+    };
+  }, []);
+
+  return { todayMinutes }; // Pass to Stats component
+}
+```
+
+**Weekly aggregation**: Sum localStorage entries for the past 7 days.
 
 ```tsx
 <div className="h-32 flex items-end gap-1">
@@ -138,34 +189,98 @@ addActivity: (activity: Omit<Activity, 'id' | 'timestamp'>) => void;
     </div>
   ))}
 </div>
-<div className="flex justify-between mt-2 text-xs text-text-muted">
-  <span>今日: 2.5 小时</span>
-  <span>本周: 12 小时</span>
-</div>
 ```
 
 ### Writing Output — Auto Stats (not manual input)
 
 ```tsx
-<div className="grid grid-cols-3 gap-4">
+<div className="grid grid-cols-2 gap-4">
   <div>
-    <div className="text-2xl font-semibold text-text-primary">8,432</div>
+    <div className="text-2xl font-semibold text-text-primary">{totalWords.toLocaleString()}</div>
     <div className="text-xs text-text-muted">总字数</div>
   </div>
   <div>
-    <div className="text-2xl font-semibold text-text-primary">1,205</div>
-    <div className="text-xs text-text-muted">本周新增</div>
-  </div>
-  <div>
-    <div className="text-2xl font-semibold text-text-primary">3</div>
+    <div className="text-2xl font-semibold text-text-primary">{completedCount}</div>
     <div className="text-xs text-text-muted">完成综述</div>
   </div>
 </div>
 ```
 
+**"本周新增" deferred**: Requires snapshot history. Will implement when `events.log` architecture lands.
+
 **Data Sources**:
-- Work time: Frontend activity tracking (mouse/keyboard events, 5-min idle timeout)
-- Word count: Rust backend reads `draft.md` and counts words (`invoke('get_draft_stats')`)
+- Work time: `useActivityTracker` hook with localStorage
+- Word count: `invoke('get_draft_stats')` from Rust backend
+- Completed count: `Object.values(tasks).filter(t => t.status === 'Completed').length`
+
+---
+
+## Rust Backend: New Commands
+
+### `get_draft_stats` command
+
+**File**: `src-tauri/src/presentation/commands.rs`
+
+```rust
+#[derive(Serialize)]
+pub struct DraftStats {
+    pub total_words: u32,
+    pub total_chars: u32,
+    pub last_modified: Option<u64>,
+}
+
+#[tauri::command]
+pub async fn get_draft_stats(
+    workspace_id: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<DraftStats, String> {
+    let workspace = container.workspace().load(&workspace_id).map_err(|e| e.to_string())?;
+    let draft_path = workspace.path().join("draft.md");
+
+    let content = tokio::fs::read_to_string(&draft_path).await.unwrap_or_default();
+    let word_count = content.split_whitespace().count() as u32;
+    let char_count = content.chars().count() as u32;
+
+    Ok(DraftStats {
+        total_words: word_count,
+        total_chars: char_count,
+        last_modified: draft_path.metadata()
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()),
+    })
+}
+```
+
+**Frontend call**:
+
+```ts
+const [draftStats, setDraftStats] = useState({ total_words: 0, total_chars: 0 });
+
+useEffect(() => {
+  if (currentTaskId) {
+    invoke<{ total_words: number; total_chars: number }>('get_draft_stats', {
+      workspace_id: currentTaskId
+    }).then(setDraftStats);
+  }
+}, [currentTaskId]);
+```
+
+---
+
+## TitleBar Integration
+
+TitleBar is a standalone component. Simpler approach: detect route in TitleBar itself.
+
+```tsx
+// TitleBar.tsx
+const { pathname } = useLocation();
+
+// Show task info only on home page
+const showTaskStatus = pathname === '/';
+```
+
+No global state needed. Task status in TitleBar comes from existing `useAppStore()`.
 
 ---
 
@@ -196,26 +311,9 @@ addActivity: (activity: Omit<Activity, 'id' | 'timestamp'>) => void;
 │      │  ─────────────────────────────────────    │
 │      │  本周工作时长    写作产出                    │
 │      │  ▓▓▓▓░░▓▓▓░░    总字数: 8,432             │
-│      │  周 一 二 三 四 五 六  本周: 12h            │
+│      │  周 一 二 三 四 五 六  本周: 12h             │
 └──────┴────────────────────────────────────────────┘
 ```
-
----
-
-## Architecture Notes
-
-### TitleBar Integration
-- Home page shows status (time / task name) in center
-- Stats is embedded, not separate page → no TitleBar changes needed
-
-### Theme Adaptation
-- Light theme: primary color (green/teal)
-- Dark theme: use lower-opacity variants to avoid harsh contrast
-- Activity icons: adapt colors per theme
-
-### Real-time Updates
-- Task progress bars update via `task-event` Tauri events
-- `useTaskEvents` hook already exists, no new infrastructure needed
 
 ---
 
@@ -225,20 +323,19 @@ addActivity: (activity: Omit<Activity, 'id' | 'timestamp'>) => void;
 |------|--------|
 | `Home.tsx` | Full redesign: Quick Start + Active Reviews + Activity + Stats |
 | `store.ts` | Add `activities` array + `addActivity` action |
-| `Sidebar.tsx` | No change (Stats not in sidebar) |
-| `App.tsx` | No change (no new route) |
-| `components/ui/ProgressRing.tsx` | New component (optional, can use CSS) |
+| `Sidebar.tsx` | No change |
+| `App.tsx` | No change |
 | `components/ui/StatusBadge.tsx` | New component for phase labels |
+| `components/ui/ProgressRing.tsx` | New (optional, can use CSS) |
+| `hooks/useActivityTracker.ts` | New - frontend activity tracking |
+| `src-tauri/src/presentation/commands.rs` | Add `get_draft_stats` command |
 
-## Data Sources
-
-- Tasks: `useAppStore().tasks`
-- Activities: `useAppStore().activities` (Zustand, session-only)
-- Work time: Frontend activity tracking (existing `recordActivity` + idle detection)
-- Word count: `invoke('get_draft_stats')` from Rust backend
+---
 
 ## Out of Scope (MVP)
 
+- "本周新增" word count (requires snapshot history)
 - Persisting activities to SQLite (方案 B)
 - Dark theme heatmap optimization
 - Mobile responsive layout
+- System idle detection (future: use Rust `onFocusChanged` API)
