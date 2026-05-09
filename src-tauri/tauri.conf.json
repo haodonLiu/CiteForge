@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "identifier": "com.citeforge.app",
   "build": {
-    "beforeBuildCommand": "npm run build",
-    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "cd src && npm run build",
+    "beforeDevCommand": "cd src && npm run dev",
     "frontendDist": "../out",
     "devUrl": "http://localhost:5173"
   },
