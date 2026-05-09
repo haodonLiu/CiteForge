@@ -9,6 +9,7 @@ export type TaskState =
   | 'Researching'
   | 'Analyzing'
   | 'Writing'
+  | 'AnalyzingAndWriting'
   | 'Completed'
   | 'Failed';
 
@@ -153,4 +154,40 @@ export interface InteractionStyle {
   suggest_alternatives: boolean;
   use_analogies: boolean;
   cite_sources: boolean;
+}
+
+export interface LlmConfig {
+  provider: 'OpenAI' | 'Anthropic' | 'Ollama';
+  base_url: string;
+  api_key: string | undefined;
+  model: string;
+  timeout_secs: number | undefined;
+}
+
+export interface ChromaConfig {
+  url: string;
+  collection: string;
+  embedding_dimension: number;
+}
+
+export interface AppSettings {
+  llm: LlmConfig;
+  chroma: ChromaConfig;
+}
+
+export interface TextIndexEntry {
+  page: number;
+  text: string;
+  bbox?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+}
+
+export interface OutlineEntry {
+  title: string;
+  page: number;
+  level: number;
 }

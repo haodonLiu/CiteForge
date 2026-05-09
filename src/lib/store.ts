@@ -1,15 +1,24 @@
 import { create } from 'zustand';
-import type { TaskEvent, TaskState } from './types';
+import type { TaskEvent } from './types';
+import { setTheme as applyTheme, getStoredTheme } from './theme';
+
+export type AppTheme = 'ivory_press' | 'midnight_scholar' | 'green_garden' | 'high_contrast';
 
 interface Task {
   id: string;
   topic: string;
   status: string;
   progress: number;
+  currentAgent?: string;
+  lastAction?: string;
   error?: string;
 }
 
 interface AppStore {
+  theme: AppTheme;
+  setTheme: (theme: AppTheme) => void;
+  initializeTheme: () => void;
+
   tasks: Record<string, Task>;
   currentTaskId: string | null;
 
@@ -20,7 +29,24 @@ interface AppStore {
   clearTask: (id: string) => void;
 }
 
+const storedTheme = getStoredTheme();
+
 export const useAppStore = create<AppStore>((set) => ({
+  theme: storedTheme || 'ivory_press',
+
+  setTheme: (theme) => {
+    applyTheme(theme);
+    set({ theme });
+  },
+
+  initializeTheme: () => {
+    const stored = getStoredTheme();
+    if (stored) {
+      applyTheme(stored);
+      set({ theme: stored });
+    }
+  },
+
   tasks: {},
   currentTaskId: null,
 
@@ -30,12 +56,15 @@ export const useAppStore = create<AppStore>((set) => ({
     })),
 
   updateTask: (id, updates) =>
-    set((state) => ({
-      tasks: {
-        ...state.tasks,
-        [id]: { ...state.tasks[id], ...updates },
-      },
-    })),
+    set((state) => {
+      if (!state.tasks[id]) return state;
+      return {
+        tasks: {
+          ...state.tasks,
+          [id]: { ...state.tasks[id], ...updates },
+        },
+      };
+    }),
 
   updateTaskFromEvent: (event) => {
     const taskId = event.payload.task_id;
@@ -55,7 +84,7 @@ export const useAppStore = create<AppStore>((set) => ({
             : 'Writing';
           updates.progress = event.payload.agent === 'Researcher' ? 0.5
             : event.payload.agent === 'Analyst' ? 0.75
-            : 0.75;
+            : 1.0;
           break;
         case 'TaskCompleted':
           updates.status = 'Completed';

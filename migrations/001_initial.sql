@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 CREATE TABLE IF NOT EXISTS literature_entries (
     id TEXT PRIMARY KEY,
     task_id TEXT NOT NULL,
-    index INTEGER NOT NULL,
+    sort_order INTEGER NOT NULL,
     title TEXT NOT NULL,
     authors TEXT NOT NULL,
     abstract_text TEXT,

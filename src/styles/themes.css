@@ -1,14 +1,52 @@
-/* Midnight Scholar (default dark theme) */
+/* ============================================
+   IVORY PRESS - Default Theme (学术烫金风格)
+   象牙白底 + 烫金墨色 + 深红木副色
+   ============================================ */
+[data-theme="ivory_press"] {
+  --color-primary: #8b7355;
+  --color-secondary: #6b4423;
+  --color-accent: #c9a962;
+  --color-background: #faf8f5;
+  --color-surface: #f5f2ed;
+  --color-surface-hover: #ebe6df;
+  --color-card: #ffffff;
+  --color-border: #e0d8cc;
+  --color-text-primary: #1a1915;
+  --color-text-secondary: #4a4640;
+  --color-text-muted: #8a857a;
+  --color-success: #4a7c59;
+  --color-warning: #b8860b;
+  --color-error: #a63d40;
+  --color-info: #5c6b8a;
+  --color-highlight: #f0e6d3;
+  --color-selection: #c9a962;
+  --color-link: #6b5344;
+  --color-code-background: #f0ebe4;
+
+  --font-sans: 'Crimson Pro', 'Crimson Text', Georgia, 'Times New Roman', serif;
+  --font-serif: 'Crimson Pro', 'Crimson Text', Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-size-base: 14px;
+  --line-height: 1.75;
+
+  --spacing-unit: 4px;
+  --radius: 4px;
+  --gap: 16px;
+}
+
+/* ============================================
+   MIDNIGHT SCHOLAR - Deep reading / Coding
+   ============================================ */
 [data-theme="midnight_scholar"] {
   --color-primary: #6366f1;
   --color-secondary: #8b5cf6;
   --color-accent: #f59e0b;
-  --color-background: #0f172a;
-  --color-surface: #1e293b;
-  --color-surface-hover: #334155;
-  --color-card: #1e293b;
-  --color-border: #334155;
-  --color-text-primary: #f8fafc;
+  --color-background: #0b1120;
+  --color-surface: #151e32;
+  --color-surface-hover: #1e2a42;
+  --color-card: #1a2744;
+  --color-border: #2a3a5c;
+  --color-text-primary: #e2e8f0;
   --color-text-secondary: #94a3b8;
   --color-text-muted: #64748b;
   --color-success: #22c55e;
@@ -17,115 +55,86 @@
   --color-info: #3b82f6;
   --color-highlight: #fbbf24;
   --color-selection: #6366f1;
-  --color-link: #3b82f6;
-  --color-code-background: #1e293b;
+  --color-link: #60a5fa;
+  --color-code-background: #0d1320;
 
-  --font-sans: 'Inter', sans-serif;
-  --font-serif: 'Georgia', serif;
-  --font-mono: 'JetBrains Mono', monospace;
-  --font-size-base: 16px;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+  --font-serif: Georgia, 'Times New Roman', serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-size-base: 14px;
   --line-height: 1.6;
 
   --spacing-unit: 4px;
-  --radius: 8px;
+  --radius: 6px;
   --gap: 16px;
 }
 
-/* Classic Paper */
-[data-theme="classic_paper"] {
-  --color-primary: #2563eb;
-  --color-secondary: #7c3aed;
-  --color-accent: #dc2626;
-  --color-background: #fefce8;
-  --color-surface: #ffffff;
-  --color-surface-hover: #f1f5f9;
-  --color-card: #ffffff;
-  --color-border: #e2e8f0;
-  --color-text-primary: #1e293b;
-  --color-text-secondary: #475569;
-  --color-text-muted: #94a3b8;
-  --color-success: #16a34a;
-  --color-warning: #d97706;
-  --color-error: #dc2626;
-  --color-info: #2563eb;
-  --color-highlight: #fde68a;
-  --color-selection: #bfdbfe;
-  --color-link: #2563eb;
-  --color-code-background: #f1f5f9;
-
-  --font-sans: 'Inter', sans-serif;
-  --font-serif: 'Merriweather', 'Georgia', serif;
-  --font-mono: 'JetBrains Mono', monospace;
-  --font-size-base: 16px;
-  --line-height: 1.8;
-
-  --spacing-unit: 4px;
-  --radius: 8px;
-  --gap: 16px;
-}
-
-/* Green Garden */
+/* ============================================
+   GREEN GARDEN - Low stimulation / Long sessions
+   ============================================ */
 [data-theme="green_garden"] {
-  --color-primary: #16a34a;
-  --color-secondary: #059669;
-  --color-accent: #d97706;
-  --color-background: #f0fdf4;
-  --color-surface: #ffffff;
-  --color-surface-hover: #dcfce7;
+  --color-primary: #4a7c59;
+  --color-secondary: #3d6b4f;
+  --color-accent: #b45309;
+  --color-background: #f0f4f1;
+  --color-surface: #e6ebe8;
+  --color-surface-hover: #dce5df;
   --color-card: #ffffff;
-  --color-border: #bbf7d0;
-  --color-text-primary: #1a2e05;
-  --color-text-secondary: #3f6212;
-  --color-text-muted: #65a30d;
+  --color-border: #c8d5cc;
+  --color-text-primary: #2d3b2d;
+  --color-text-secondary: #4a5d4a;
+  --color-text-muted: #6b7c6b;
   --color-success: #16a34a;
-  --color-warning: #d97706;
+  --color-warning: #b45309;
   --color-error: #dc2626;
   --color-info: #0891b2;
-  --color-highlight: #bbf7d0;
-  --color-selection: #86efac;
-  --color-link: #16a34a;
-  --color-code-background: #f0fdf4;
+  --color-highlight: #dcfce7;
+  --color-selection: #b7e4c7;
+  --color-link: #4a7c59;
+  --color-code-background: #e8f0eb;
 
-  --font-sans: 'Inter', sans-serif;
-  --font-serif: 'Georgia', serif;
-  --font-mono: 'JetBrains Mono', monospace;
-  --font-size-base: 16px;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-size-base: 14px;
   --line-height: 1.6;
 
   --spacing-unit: 4px;
-  --radius: 8px;
+  --radius: 6px;
   --gap: 16px;
 }
 
-/* High Contrast */
+/* ============================================
+   HIGH CONTRAST - Presentations / Accessibility
+   ============================================ */
 [data-theme="high_contrast"] {
-  --color-primary: #000000;
-  --color-secondary: #1a1a1a;
-  --color-accent: #0000ff;
-  --color-background: #ffffff;
-  --color-surface: #ffffff;
-  --color-surface-hover: #f0f0f0;
-  --color-card: #ffffff;
-  --color-border: #000000;
-  --color-text-primary: #000000;
-  --color-text-secondary: #000000;
-  --color-text-muted: #333333;
-  --color-success: #008000;
-  --color-warning: #ff8c00;
-  --color-error: #ff0000;
-  --color-info: #0000ff;
+  --color-primary: #ffd700;
+  --color-secondary: #ffed4a;
+  --color-accent: #00bfff;
+  --color-background: #000000;
+  --color-surface: #1a1a1a;
+  --color-surface-hover: #2d2d2d;
+  --color-card: #1a1a1a;
+  --color-border: #4a4a4a;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #e0e0e0;
+  --color-text-muted: #a0a0a0;
+  --color-success: #00ff00;
+  --color-warning: #ffd700;
+  --color-error: #ff4444;
+  --color-info: #00bfff;
   --color-highlight: #ffff00;
-  --color-selection: #0000ff;
-  --color-link: #0000ff;
-  --color-code-background: #f0f0f0;
+  --color-selection: #ffd700;
+  --color-link: #00bfff;
+  --color-code-background: #0d0d0d;
 
-  --font-sans: 'Arial', sans-serif;
+  --font-sans: 'Arial', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-serif: 'Times New Roman', serif;
   --font-mono: 'Courier New', monospace;
-  --font-size-base: 18px;
-  --line-height: 2.0;
+  --font-size-base: 14px;
+  --line-height: 1.6;
 
-  --spacing-unit: 6px;
+  --spacing-unit: 4px;
   --radius: 4px;
-  --gap: 20px;
+  --gap: 16px;
 }
