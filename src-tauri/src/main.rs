@@ -19,10 +19,13 @@ use std::fs;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let log_path = dirs::data_local_dir()
+    let log_dir = dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("CiteForge")
-        .join("citeforge.log");
+        .join("CiteForge");
+    let log_path = log_dir.join("citeforge.log");
+
+    // Create directory if it doesn't exist
+    let _ = fs::create_dir_all(&log_dir);
     let _ = fs::remove_file(&log_path); // Delete old log
     let log_file = fs::File::create(&log_path).unwrap_or_else(|e| {
         eprintln!("Failed to create log file {:?}: {}", log_path, e);
