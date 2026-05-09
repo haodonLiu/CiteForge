@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { invoke, open } from '@/lib/tauri';
+import { invoke, open, isTauri } from '@/lib/tauri';
 import {
   FileText,
   Plus,
@@ -36,6 +36,9 @@ export default function Home({ recentLiterature = [] }: HomeProps) {
   );
 
   const [totalWords, setTotalWords] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchDraftStats = async () => {
@@ -68,42 +71,150 @@ export default function Home({ recentLiterature = [] }: HomeProps) {
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
   };
 
+  const showToast = (type: 'success' | 'error', text: string) => {
+    setToast({ type, text });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const createMockTask = (topic: string, pdfCount: number = 0): string => {
+    const mockId = `task-${Date.now()}`;
+    const taskName = pdfCount > 0 ? `${topic} (${pdfCount} 个PDF)` : topic;
+    // @ts-ignore — addTask exists on store but not typed in selector
+    useAppStore.getState().addTask({
+      id: mockId,
+      topic: taskName,
+      status: 'Pending',
+      progress: 0,
+    });
+    return mockId;
+  };
+
   const handleCreateTask = async () => {
+    setIsLoading(true);
     try {
-      const result = await invoke<{ task_id: string }>('run_task', {
-        topic: '新综述',
-        pdfPaths: [],
-      });
-      addActivity({
-        type: 'task_created',
-        description: '创建新综述任务',
-        taskId: result.task_id,
-      });
-      setCurrentTask(result.task_id);
-      navigate(`/task/${result.task_id}`);
+      if (isTauri) {
+        const result = await invoke<{ task_id: string }>('run_task', {
+          topic: '新综述',
+          pdfPaths: [],
+        });
+        if (!result?.task_id) {
+          throw new Error('后端未返回任务ID');
+        }
+        // Add task to store so it appears in UI
+        // @ts-ignore — addTask exists on store but not typed in selector
+        useAppStore.getState().addTask({
+          id: result.task_id,
+          topic: '新综述',
+          status: 'Pending',
+          progress: 0,
+        });
+        addActivity({
+          type: 'task_created',
+          description: '创建新综述任务',
+          taskId: result.task_id,
+        });
+        setCurrentTask(result.task_id);
+        navigate(`/task/${result.task_id}`);
+        showToast('success', '项目创建成功');
+      } else {
+        // Browser dev mode: create a local mock task
+        const mockId = createMockTask('新综述');
+        addActivity({
+          type: 'task_created',
+          description: '创建新综述任务（本地演示）',
+          taskId: mockId,
+        });
+        setCurrentTask(mockId);
+        navigate(`/task/${mockId}`);
+        showToast('success', '演示项目已创建');
+      }
     } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      showToast('error', `创建失败: ${msg}`);
       console.error('Failed to create task:', e);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleImportPdf = async () => {
-    const selected = await open({
-      multiple: true,
-      filters: [{ name: 'PDF', extensions: ['pdf'] }],
-    });
-    if (selected && selected.length > 0) {
-      addActivity({
-        type: 'literature_added',
-        description: `导入 ${selected.length} 个 PDF`,
-        taskId: undefined,
-      });
-      navigate('/library');
+    if (isTauri) {
+      try {
+        const selected = await open({
+          multiple: true,
+          filters: [{ name: 'PDF', extensions: ['pdf'] }],
+        });
+        if (selected && (Array.isArray(selected) ? selected.length > 0 : selected)) {
+          const paths = Array.isArray(selected) ? selected : [selected];
+          setIsLoading(true);
+          const result = await invoke<{ task_id: string }>('run_task', {
+            topic: '新综述',
+            pdfPaths: paths,
+          });
+          if (result?.task_id) {
+            // Add task to store so it appears in UI
+            // @ts-ignore — addTask exists on store but not typed in selector
+            useAppStore.getState().addTask({
+              id: result.task_id,
+              topic: `新综述 (${paths.length} 个PDF)`,
+              status: 'Pending',
+              progress: 0,
+            });
+            addActivity({
+              type: 'task_created',
+              description: `导入 ${paths.length} 个 PDF`,
+              taskId: result.task_id,
+            });
+            setCurrentTask(result.task_id);
+            navigate(`/task/${result.task_id}`);
+            showToast('success', `已导入 ${paths.length} 个PDF`);
+          }
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        showToast('error', `导入失败: ${msg}`);
+        console.error('Failed to import PDF:', e);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      // Browser mode: trigger hidden file input
+      fileInputRef.current?.click();
     }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const fileNames = Array.from(files).map((f) => f.name);
+      const mockId = createMockTask('新综述', fileNames.length);
+      addActivity({
+        type: 'task_created',
+        description: `导入 ${fileNames.length} 个 PDF（本地演示）`,
+        taskId: mockId,
+      });
+      setCurrentTask(mockId);
+      navigate(`/task/${mockId}`);
+      showToast('success', `已导入 ${fileNames.length} 个PDF（演示）`);
+    }
+    e.target.value = '';
   };
 
   return (
     <div className="h-full overflow-auto p-6">
       <div className="max-w-4xl mx-auto">
+        {/* Toast */}
+        {toast && (
+          <div
+            className={`mb-4 p-3 rounded-lg text-sm border ${
+              toast.type === 'success'
+                ? 'bg-success/10 text-success border-success/20'
+                : 'bg-error/10 text-error border-error/20'
+            }`}
+          >
+            {toast.text}
+          </div>
+        )}
         {/* Welcome + Quick Actions */}
         <div className="flex items-start justify-between mb-8">
           <div>
@@ -115,19 +226,29 @@ export default function Home({ recentLiterature = [] }: HomeProps) {
             </p>
           </div>
           <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+            />
             <button
               onClick={handleImportPdf}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium text-text-secondary bg-surface-hover hover:bg-surface-hover/80 hover:text-text-primary transition-colors border border-border"
+              disabled={isLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium text-text-secondary bg-surface-hover hover:bg-surface-hover/80 hover:text-text-primary transition-colors border border-border disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <BookOpen size={13} />
-              导入文献
+              {isLoading ? '处理中...' : '导入文献'}
             </button>
             <button
               onClick={handleCreateTask}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium text-white bg-primary hover:bg-primary/90 transition-colors"
+              disabled={isLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium text-white bg-primary hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus size={13} />
-              新建项目
+              {isLoading ? '创建中...' : '新建项目'}
             </button>
           </div>
         </div>
