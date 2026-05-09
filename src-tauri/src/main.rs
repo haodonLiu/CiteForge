@@ -14,19 +14,59 @@ pub mod workspace {
 use application::AppContainer;
 use presentation::commands;
 use anyhow::Context;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{layer::{Layer, SubscriberExt}, util::SubscriberInitExt};
+use std::fs;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let log_path = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("CiteForge")
+        .join("citeforge.log");
+    let _ = fs::remove_file(&log_path); // Delete old log
+    let log_file = fs::File::create(&log_path).unwrap_or_else(|e| {
+        eprintln!("Failed to create log file {:?}: {}", log_path, e);
+        std::process::exit(1);
+    });
+
+    use tracing_subscriber::filter;
+
+    let file_layer = tracing_subscriber::fmt::layer()
+        .with_writer(log_file)
+        .with_filter(filter::LevelFilter::WARN);
+
+    let stderr_layer = tracing_subscriber::fmt::layer()
+        .with_filter(
+            filter::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| filter::EnvFilter::new("debug")),
+        );
+
     tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
-        .with(tracing_subscriber::EnvFilter::from_default_env())
+        .with(file_layer)
+        .with(stderr_layer)
         .init();
 
-    let config = config::AppConfig::from_file("config.yaml")
-        .context("failed to load config")?;
+    tracing::info!("CiteForge starting...");
 
-    let container = AppContainer::new(config).await?;
+    let default_config = config::AppConfig::default();
+    let config_path = default_config.workspace.root.join("config.yaml");
+
+    let config = match config::AppConfig::from_file(config_path.to_str().unwrap_or("config.yaml")) {
+        Ok(c) => c,
+        Err(_) => {
+            let yaml = serde_yaml::to_string(&default_config).unwrap_or_default();
+            let _ = fs::write(&config_path, yaml);
+            default_config
+        }
+    };
+
+    let container = match AppContainer::new(config).await {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::error!("Failed to create AppContainer: {:#}", e);
+            return Err(e);
+        }
+    };
 
     tauri::Builder::default()
         .manage(container)
@@ -38,7 +78,17 @@ async fn main() -> anyhow::Result<()> {
             commands::get_agent_personalities,
             commands::get_current_theme,
             commands::set_theme,
-            commands::list_plugins,
+            commands::get_settings,
+            commands::save_settings,
+            commands::get_events,
+            commands::subscribe_events,
+            commands::generate_text_index,
+            commands::generate_outline,
+            commands::search_text_index,
+            commands::analyze_paper_structure,
+            commands::record_activity,
+            commands::get_time_status,
+            commands::get_time_records,
         ])
         .run(tauri::generate_context!())
         .context("failed to run tauri application")?;
