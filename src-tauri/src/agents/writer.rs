@@ -1,10 +1,10 @@
-use std::sync::Arc;
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use crate::application::AppContainer;
 use crate::domain::agent::{Agent, AgentError};
 use crate::domain::execution_context::TaskExecutionContext;
-use crate::application::AppContainer;
+use async_trait::async_trait;
 use citeforge_core::entity::{LiteratureEntry, Theme};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WriterInput {
@@ -33,13 +33,17 @@ impl WriterAgent {
 
     fn validate_citations(&self, draft: &str, pool_size: usize) -> Result<(), AgentError> {
         // Check for [N] format citations
-        let citation_regex = regex::Regex::new(r"\[(\d+)\]").expect("citation regex should always be valid");
+        let citation_regex =
+            regex::Regex::new(r"\[(\d+)\]").expect("citation regex should always be valid");
         let mut errors = Vec::new();
 
         for cap in citation_regex.captures_iter(draft) {
             if let Ok(idx) = cap[1].parse::<usize>() {
                 if idx < 1 || idx > pool_size {
-                    errors.push(format!("Invalid citation [{}] - pool size is {}", idx, pool_size));
+                    errors.push(format!(
+                        "Invalid citation [{}] - pool size is {}",
+                        idx, pool_size
+                    ));
                 }
             }
         }
@@ -57,17 +61,19 @@ impl Agent for WriterAgent {
     type Input = WriterInput;
     type Output = WriterOutput;
 
-    fn name(&self) -> &'static str {
-        "WriterAgent"
-    }
-
-    async fn run(&self, ctx: &TaskExecutionContext, input: Self::Input) -> Result<Self::Output, AgentError> {
+    async fn run(
+        &self,
+        ctx: &TaskExecutionContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, AgentError> {
         tracing::info!("WriterAgent: writing draft for topic '{}'", input.topic);
 
         let pool_size = input.literature_entries.len();
 
         // Build literature context
-        let literature_context: String = input.literature_entries.iter()
+        let literature_context: String = input
+            .literature_entries
+            .iter()
             .enumerate()
             .map(|(i, e)| format!("[{}] {} - {}", i + 1, e.title, e.authors.join(", ")))
             .collect::<Vec<_>>()
@@ -89,26 +95,28 @@ impl Agent for WriterAgent {
             input.gaps.join("; ")
         );
 
-        let messages = vec![
-            citeforge_core::ports::ChatMessage {
-                role: "user".to_string(),
-                content: prompt,
-            }
-        ];
+        let messages = vec![citeforge_core::ports::ChatMessage {
+            role: "user".to_string(),
+            content: prompt,
+        }];
 
-        let draft = ctx.run_with_timeout(async {
-            self.container.llm.chat(messages).await
-        }).await
-        .map_err(|_| AgentError::Timeout)?
-        .map_err(|e| AgentError::Llm(format!("LLM error: {}", e)))?;
+        let draft = ctx
+            .run_with_timeout(async { self.container.llm.chat(messages).await })
+            .await
+            .map_err(|_| AgentError::Timeout)?
+            .map_err(|e| AgentError::Llm(format!("LLM error: {}", e)))?;
 
         // Validate citations
         self.validate_citations(&draft, pool_size)?;
 
         // Count citations
-        let citation_regex = regex::Regex::new(r"\[(\d+)\]").expect("citation regex should always be valid");
+        let citation_regex =
+            regex::Regex::new(r"\[(\d+)\]").expect("citation regex should always be valid");
         let citation_count = citation_regex.find_iter(&draft).count();
 
-        Ok(WriterOutput { draft, citation_count })
+        Ok(WriterOutput {
+            draft,
+            citation_count,
+        })
     }
 }

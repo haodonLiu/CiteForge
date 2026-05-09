@@ -1,7 +1,10 @@
-use std::sync::Arc;
 use async_trait::async_trait;
-use citeforge_core::ports::{ChatProvider, EmbedProvider, ChatMessage, ChatError, EmbedError, ChatProviderFactory, EmbedProviderFactory, ProviderConfig};
 use citeforge_core::error::CiteForgeError;
+use citeforge_core::ports::{
+    ChatError, ChatMessage, ChatProvider, ChatProviderFactory, EmbedError, EmbedProvider,
+    EmbedProviderFactory, ProviderConfig,
+};
+use std::sync::Arc;
 pub struct OllamaProvider {
     base_url: String,
     model: String,
@@ -29,11 +32,16 @@ impl OllamaProvider {
 struct OllamaFactory;
 
 impl ChatProviderFactory for OllamaFactory {
-    fn name(&self) -> &'static str { "ollama" }
+    fn name(&self) -> &'static str {
+        "ollama"
+    }
 
     fn create(&self, config: &ProviderConfig) -> Result<Arc<dyn ChatProvider>, CiteForgeError> {
         Ok(Arc::new(OllamaProvider::new(
-            config.base_url.clone().unwrap_or_else(|| "http://localhost:11434".to_string()),
+            config
+                .base_url
+                .clone()
+                .unwrap_or_else(|| "http://localhost:11434".to_string()),
             config.model.clone().unwrap_or_else(|| "llama2".to_string()),
         )))
     }
@@ -42,12 +50,20 @@ impl ChatProviderFactory for OllamaFactory {
 struct OllamaEmbedFactory;
 
 impl EmbedProviderFactory for OllamaEmbedFactory {
-    fn name(&self) -> &'static str { "ollama" }
+    fn name(&self) -> &'static str {
+        "ollama"
+    }
 
     fn create(&self, config: &ProviderConfig) -> Result<Arc<dyn EmbedProvider>, CiteForgeError> {
         Ok(Arc::new(OllamaProvider::new(
-            config.base_url.clone().unwrap_or_else(|| "http://localhost:11434".to_string()),
-            config.model.clone().unwrap_or_else(|| "nomic-embed-text".to_string()),
+            config
+                .base_url
+                .clone()
+                .unwrap_or_else(|| "http://localhost:11434".to_string()),
+            config
+                .model
+                .clone()
+                .unwrap_or_else(|| "nomic-embed-text".to_string()),
         )))
     }
 }
@@ -67,7 +83,9 @@ impl ChatProvider for OllamaProvider {
             }).collect::<Vec<_>>()
         });
 
-        let resp = self.client.post(&url)
+        let resp = self
+            .client
+            .post(&url)
             .json(&body)
             .send()
             .await
@@ -77,7 +95,9 @@ impl ChatProvider for OllamaProvider {
             return Err(ChatError::Api(format!("API error: {}", resp.status())));
         }
 
-        let result: serde_json::Value = resp.json().await
+        let result: serde_json::Value = resp
+            .json()
+            .await
             .map_err(|e| ChatError::Network(e.to_string()))?;
 
         let content = result["message"]["content"]
@@ -105,7 +125,9 @@ impl EmbedProvider for OllamaProvider {
                 "prompt": text
             });
 
-            let resp = self.client.post(&url)
+            let resp = self
+                .client
+                .post(&url)
                 .json(&body)
                 .send()
                 .await
@@ -115,7 +137,9 @@ impl EmbedProvider for OllamaProvider {
                 return Err(EmbedError::Api(format!("API error: {}", resp.status())));
             }
 
-            let result: serde_json::Value = resp.json().await
+            let result: serde_json::Value = resp
+                .json()
+                .await
                 .map_err(|e| EmbedError::Network(e.to_string()))?;
 
             let embedding = parse_single_embedding(&result)?;
@@ -134,7 +158,11 @@ fn parse_single_embedding(result: &serde_json::Value) -> Result<Vec<f32>, EmbedE
     result["embedding"]
         .as_array()
         .ok_or_else(|| EmbedError::Api("missing 'embedding' in response".to_string()))
-        .map(|arr| arr.iter().map(|v| v.as_f64().unwrap_or(0.0) as f32).collect())
+        .map(|arr| {
+            arr.iter()
+                .map(|v| v.as_f64().unwrap_or(0.0) as f32)
+                .collect()
+        })
 }
 
 #[cfg(test)]

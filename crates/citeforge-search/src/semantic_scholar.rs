@@ -18,21 +18,29 @@ impl SemanticScholarClient {
 
 #[async_trait]
 impl SearchEngine for SemanticScholarClient {
-    async fn search(&self, query: &str, max_results: usize) -> Result<Vec<LiteratureEntry>, SearchError> {
+    async fn search(
+        &self,
+        query: &str,
+        max_results: usize,
+    ) -> Result<Vec<LiteratureEntry>, SearchError> {
         let url = "https://api.semanticscholar.org/graph/v1/paper/search";
 
-        let mut req = self.client.get(url)
-            .query(&[
-                ("query", query),
-                ("limit", &max_results.to_string()),
-                ("fields", "title,authors,abstract,year,venue,citationCount,externalIds"),
-            ]);
+        let mut req = self.client.get(url).query(&[
+            ("query", query),
+            ("limit", &max_results.to_string()),
+            (
+                "fields",
+                "title,authors,abstract,year,venue,citationCount,externalIds",
+            ),
+        ]);
 
         if let Some(key) = &self.api_key {
             req = req.header("x-api-key", key);
         }
 
-        let resp = req.send().await
+        let resp = req
+            .send()
+            .await
             .map_err(|e| SearchError::Network(e.to_string()))?;
 
         if resp.status() == 429 {
@@ -43,7 +51,9 @@ impl SearchEngine for SemanticScholarClient {
             return Err(SearchError::Api(format!("API error: {}", resp.status())));
         }
 
-        let result: serde_json::Value = resp.json().await
+        let result: serde_json::Value = resp
+            .json()
+            .await
             .map_err(|e| SearchError::Network(e.to_string()))?;
 
         if let Some(msg) = result["error"].as_str() {

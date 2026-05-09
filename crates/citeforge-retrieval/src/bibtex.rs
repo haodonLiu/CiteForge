@@ -7,8 +7,13 @@ impl BibtexExporter {
         let mut output = String::new();
 
         for entry in entries {
-            let entry_type = if entry.doi.is_some() { "article" } else { "misc" };
-            let key = entry.doi
+            let entry_type = if entry.doi.is_some() {
+                "article"
+            } else {
+                "misc"
+            };
+            let key = entry
+                .doi
                 .as_ref()
                 .or(entry.authors.first())
                 .map(|s| s.split_whitespace().last().unwrap_or("unknown"))
@@ -18,7 +23,10 @@ impl BibtexExporter {
             output.push_str(&format!("  title = {{{}}},\n", entry.title));
 
             if !entry.authors.is_empty() {
-                output.push_str(&format!("  author = {{{}}},\n", entry.authors.join(" and ")));
+                output.push_str(&format!(
+                    "  author = {{{}}},\n",
+                    entry.authors.join(" and ")
+                ));
             }
 
             if let Some(year) = entry.year {

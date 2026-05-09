@@ -1,9 +1,13 @@
-use async_trait::async_trait;
 use crate::entity::LiteratureEntry;
+use async_trait::async_trait;
 
 #[async_trait]
 pub trait SearchEngine: Send + Sync {
-    async fn search(&self, query: &str, max_results: usize) -> Result<Vec<LiteratureEntry>, SearchError>;
+    async fn search(
+        &self,
+        query: &str,
+        max_results: usize,
+    ) -> Result<Vec<LiteratureEntry>, SearchError>;
 }
 
 #[derive(Debug, thiserror::Error)]

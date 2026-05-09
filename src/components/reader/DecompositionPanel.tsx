@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+import { invoke, listen } from '@/lib/tauri';
 import { Layers, AlertTriangle, RefreshCw, ChevronRight, ChevronDown } from 'lucide-react';
 import Button from '@/components/ui/Button';
 
@@ -66,10 +65,10 @@ export default function DecompositionPanel({ filePath, onJumpToPage }: Props) {
 
   // Listen for decomposition progress events
   useEffect(() => {
-    const unlisten = listen<DecompositionProgress>('decomposition-progress', (event) => {
+    const unlisten = listen<DecompositionProgress>('decomposition-progress', (event: { payload: DecompositionProgress }) => {
       setProgress(event.payload);
     });
-    return () => { unlisten.then(fn => fn()); };
+    return () => { unlisten.then((fn: () => void) => fn()); };
   }, []);
 
   const analyzeStructure = useCallback(async (path: string) => {

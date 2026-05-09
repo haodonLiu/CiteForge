@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@/lib/tauri';
 import type { TextIndexEntry, OutlineEntry } from '@/lib/types';
 
 export function usePdfIndex() {

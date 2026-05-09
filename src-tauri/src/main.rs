@@ -1,21 +1,24 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod agent;
+mod agents;
 mod application;
 mod config;
 mod domain;
-mod presentation;
-mod agent;
-mod agents;
 mod metrics;
+mod presentation;
 pub mod workspace {
     pub use citeforge_workspace::*;
 }
 
+use anyhow::Context;
 use application::AppContainer;
 use presentation::commands;
-use anyhow::Context;
-use tracing_subscriber::{layer::{Layer, SubscriberExt}, util::SubscriberInitExt};
 use std::fs;
+use tracing_subscriber::{
+    layer::{Layer, SubscriberExt},
+    util::SubscriberInitExt,
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -38,11 +41,10 @@ async fn main() -> anyhow::Result<()> {
         .with_writer(log_file)
         .with_filter(filter::LevelFilter::WARN);
 
-    let stderr_layer = tracing_subscriber::fmt::layer()
-        .with_filter(
-            filter::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| filter::EnvFilter::new("debug")),
-        );
+    let stderr_layer = tracing_subscriber::fmt::layer().with_filter(
+        filter::EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| filter::EnvFilter::new("debug")),
+    );
 
     tracing_subscriber::registry()
         .with(file_layer)

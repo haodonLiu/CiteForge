@@ -1,13 +1,14 @@
+use async_trait::async_trait;
+use backoff::{future::retry, ExponentialBackoff};
+use citeforge_core::ports::{ChatError, ChatMessage, ChatProvider, EmbedError, EmbedProvider};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use async_trait::async_trait;
-use backoff::{ExponentialBackoff, future::retry};
-use citeforge_core::ports::{ChatProvider, EmbedProvider, ChatMessage, ChatError, EmbedError};
 
 pub struct ResilientChatProvider {
     inner: Arc<dyn ChatProvider>,
     fallback: Option<Arc<dyn ChatProvider>>,
     circuit: Arc<tokio::sync::RwLock<CircuitState>>,
+    #[allow(dead_code)]
     max_retries: u32,
 }
 
@@ -41,7 +42,11 @@ impl ResilientChatProvider {
     async fn is_open(&self) -> bool {
         let state = self.circuit.read().await;
         match &*state {
-            CircuitState::Open(last_failure) if last_failure.elapsed() < Duration::from_secs(30) => true,
+            CircuitState::Open(last_failure)
+                if last_failure.elapsed() < Duration::from_secs(30) =>
+            {
+                true
+            }
             CircuitState::Open(_) => {
                 drop(state);
                 *self.circuit.write().await = CircuitState::HalfOpen;
@@ -81,12 +86,9 @@ impl ChatProvider for ResilientChatProvider {
         let result = retry(backoff, || {
             let inner = Arc::clone(&inner);
             let msgs = msgs.clone();
-            async move {
-                inner.chat(msgs).await.map_err(|e| {
-                    backoff::Error::transient(e)
-                })
-            }
-        }).await;
+            async move { inner.chat(msgs).await.map_err(backoff::Error::transient) }
+        })
+        .await;
 
         match result {
             Ok(response) => {

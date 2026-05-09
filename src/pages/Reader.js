@@ -56,7 +56,8 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
 };
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { useState, useRef, useCallback, lazy, Suspense } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
@@ -67,36 +68,39 @@ import TextSelectionMenu from '@/components/reader/TextSelectionMenu';
 import DecompositionPanel from '@/components/reader/DecompositionPanel';
 export default function Reader() {
     var _this = this;
-    var id = useParams().id;
-    var _a = useState(null), filePath = _a[0], setFilePath = _a[1];
-    var _b = useState(null), file = _b[0], setFile = _b[1];
-    var _c = useState(0), numPages = _c[0], setNumPages = _c[1];
-    var _d = useState(1), currentPage = _d[0], setCurrentPage = _d[1];
-    var _e = useState(1.0), scale = _e[0], setScale = _e[1];
-    var _f = useState([]), annotations = _f[0], setAnnotations = _f[1];
-    var _g = useState(false), showSidebar = _g[0], setShowSidebar = _g[1];
-    var _h = useState('outline'), sidebarTab = _h[0], setSidebarTab = _h[1];
+    var _a = useParams(), taskId = _a.taskId, docId = _a.docId, legacyId = _a.id;
+    var effectiveDocId = docId || legacyId;
+    var _b = useState(null), filePath = _b[0], setFilePath = _b[1];
+    var _c = useState(null), file = _c[0], setFile = _c[1];
+    var _d = useState(0), numPages = _d[0], setNumPages = _d[1];
+    var _e = useState(1), currentPage = _e[0], setCurrentPage = _e[1];
+    var _f = useState(1.0), scale = _f[0], setScale = _f[1];
+    var _g = useState([]), annotations = _g[0], setAnnotations = _g[1];
+    var _h = useState(false), showSidebar = _h[0], setShowSidebar = _h[1];
+    var _j = useState('outline'), sidebarTab = _j[0], setSidebarTab = _j[1];
     var containerRef = useRef(null);
-    var _j = useState([]), notes = _j[0], setNotes = _j[1];
-    var _k = useState(''), searchQuery = _k[0], setSearchQuery = _k[1];
-    var _l = useState(true), showOutline = _l[0], setShowOutline = _l[1];
-    var _m = usePdfIndex(), outline = _m.outline, searchResults = _m.searchResults, indexLoading = _m.loading, generateIndex = _m.generateIndex, search = _m.search, clearSearch = _m.clearSearch;
+    var _k = useState([]), notes = _k[0], setNotes = _k[1];
+    var _l = useState(''), searchQuery = _l[0], setSearchQuery = _l[1];
+    var _m = useState(true), showOutline = _m[0], setShowOutline = _m[1];
+    var _o = usePdfIndex(), outline = _o.outline, searchResults = _o.searchResults, indexLoading = _o.loading, generateIndex = _o.generateIndex, search = _o.search, clearSearch = _o.clearSearch;
     var handleVisiblePageChange = useCallback(function (page) {
         setCurrentPage(page);
     }, []);
     var handleAddNote = useCallback(function (text, page) {
-        setNotes(function (prev) { return __spreadArray(__spreadArray([], prev, true), [{
+        setNotes(function (prev) { return __spreadArray(__spreadArray([], prev, true), [
+            {
                 text: text,
                 page: page,
                 timestamp: new Date().toISOString(),
-            }], false); });
+            },
+        ], false); });
     }, []);
     var handleInsertCitation = useCallback(function (text, page) {
-        // TODO: 与 Writer Agent 集成，将选中文本作为引用插入草稿
-        console.log('Insert citation:', { text: text, page: page });
-    }, []);
+        // TODO: Integrate with Writer Agent to insert selected text as citation into draft
+        console.log('Insert citation:', { text: text, page: page, taskId: taskId });
+    }, [taskId]);
     var handleSearchSemantic = useCallback(function (text) {
-        // TODO: 调用 Semantic Scholar API 搜索
+        // TODO: Call Semantic Scholar API
         console.log('Search semantic scholar:', text);
     }, []);
     var handleSearch = useCallback(function (query) { return __awaiter(_this, void 0, void 0, function () {
@@ -135,7 +139,7 @@ export default function Reader() {
             }
         }
     }, []);
-    // 键盘快捷键
+    // Keyboard shortcuts
     var handleKeyDown = useCallback(function (e) {
         if (e.key === 'ArrowUp' || e.key === 'PageUp') {
             e.preventDefault();
@@ -148,7 +152,7 @@ export default function Reader() {
             scrollToPage(Math.min(numPages, currentPage + 1));
         }
     }, [currentPage, numPages, scrollToPage]);
-    return (_jsxs("div", { className: "h-full flex flex-col", tabIndex: 0, onKeyDown: handleKeyDown, children: [_jsxs("div", { className: "h-10 flex items-center justify-between px-3 border-b border-border bg-surface shrink-0", children: [_jsxs("div", { className: "flex items-center gap-3", children: [_jsxs("div", { className: "flex items-center gap-0.5", children: [_jsx(Button, { size: "sm", variant: "ghost", onClick: function () {
+    return (_jsxs("div", { className: "h-full flex flex-col", tabIndex: 0, onKeyDown: handleKeyDown, children: [_jsxs("div", { className: "h-10 flex items-center justify-between px-3 border-b border-border bg-surface shrink-0", children: [_jsxs("div", { className: "flex items-center gap-3", children: [taskId && (_jsxs(Link, { to: "/task/".concat(taskId, "/literature"), className: "flex items-center gap-1 text-xs text-text-muted hover:text-text-primary transition-colors", children: [_jsx(ArrowLeft, { size: 12 }), "\u6587\u732E"] })), _jsx("div", { className: "w-px h-4 bg-border" }), _jsxs("div", { className: "flex items-center gap-0.5", children: [_jsx(Button, { size: "sm", variant: "ghost", onClick: function () {
                                             setCurrentPage(function (p) { return Math.max(1, p - 1); });
                                             scrollToPage(Math.max(1, currentPage - 1));
                                         }, disabled: currentPage <= 1, className: "w-7 h-7 p-0", children: "\u25C0" }), _jsx(Button, { size: "sm", variant: "ghost", onClick: function () {
@@ -161,7 +165,9 @@ export default function Reader() {
                                         var numPages = _a.numPages;
                                         return setNumPages(numPages);
                                     }, onVisiblePageChange: handleVisiblePageChange }) }), _jsx(AnnotationLayer, { annotations: annotations, currentPage: currentPage, onAddAnnotation: function (annotation) {
-                                    setAnnotations(function (prev) { return __spreadArray(__spreadArray([], prev, true), [__assign(__assign({}, annotation), { id: Date.now().toString(), created_at: new Date().toISOString() })], false); });
+                                    setAnnotations(function (prev) { return __spreadArray(__spreadArray([], prev, true), [
+                                        __assign(__assign({}, annotation), { id: Date.now().toString(), created_at: new Date().toISOString() }),
+                                    ], false); });
                                 }, onDeleteAnnotation: function (id) {
                                     setAnnotations(function (prev) { return prev.filter(function (a) { return a.id !== id; }); });
                                 } }), _jsx(TextSelectionMenu, { onAddNote: handleAddNote, onInsertCitation: handleInsertCitation, onSearchSemantic: handleSearchSemantic })] }), showSidebar && (_jsxs("div", { className: "w-72 border-l border-border bg-surface flex flex-col overflow-hidden", children: [_jsxs("div", { className: "flex border-b border-border shrink-0", children: [_jsx("button", { onClick: function () { return setSidebarTab('outline'); }, className: "flex-1 px-3 py-2 text-xs font-medium transition-colors ".concat(sidebarTab === 'outline'

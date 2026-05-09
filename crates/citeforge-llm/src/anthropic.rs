@@ -1,8 +1,11 @@
-use std::sync::Arc;
 use async_trait::async_trait;
-use citeforge_core::ports::{ChatProvider, EmbedProvider, ChatMessage, ChatError, EmbedError, ChatProviderFactory, ProviderConfig};
 use citeforge_core::error::CiteForgeError;
-use secrecy::{SecretString, ExposeSecret};
+use citeforge_core::ports::{
+    ChatError, ChatMessage, ChatProvider, ChatProviderFactory, EmbedError, EmbedProvider,
+    ProviderConfig,
+};
+use secrecy::{ExposeSecret, SecretString};
+use std::sync::Arc;
 
 pub struct AnthropicProvider {
     api_key: SecretString,
@@ -29,13 +32,21 @@ impl AnthropicProvider {
 struct AnthropicFactory;
 
 impl ChatProviderFactory for AnthropicFactory {
-    fn name(&self) -> &'static str { "anthropic" }
+    fn name(&self) -> &'static str {
+        "anthropic"
+    }
 
     fn create(&self, config: &ProviderConfig) -> Result<Arc<dyn ChatProvider>, CiteForgeError> {
         Ok(Arc::new(AnthropicProvider::new(
             secrecy::SecretString::from(config.api_key.clone().unwrap_or_default()),
-            config.base_url.clone().unwrap_or_else(|| "https://api.anthropic.com".to_string()),
-            config.model.clone().unwrap_or_else(|| "claude-3-sonnet".to_string()),
+            config
+                .base_url
+                .clone()
+                .unwrap_or_else(|| "https://api.anthropic.com".to_string()),
+            config
+                .model
+                .clone()
+                .unwrap_or_else(|| "claude-3-sonnet".to_string()),
         )))
     }
 }
@@ -55,7 +66,9 @@ impl ChatProvider for AnthropicProvider {
             }).collect::<Vec<_>>()
         });
 
-        let resp = self.client.post(&url)
+        let resp = self
+            .client
+            .post(&url)
             .header("x-api-key", self.api_key.expose_secret())
             .header("anthropic-version", "2023-06-01")
             .json(&body)
@@ -67,7 +80,9 @@ impl ChatProvider for AnthropicProvider {
             return Err(ChatError::Api(format!("API error: {}", resp.status())));
         }
 
-        let result: serde_json::Value = resp.json().await
+        let result: serde_json::Value = resp
+            .json()
+            .await
             .map_err(|e| ChatError::Network(e.to_string()))?;
 
         let content = result["content"][0]["text"]
@@ -86,7 +101,9 @@ impl ChatProvider for AnthropicProvider {
 #[async_trait]
 impl EmbedProvider for AnthropicProvider {
     async fn embed(&self, _texts: Vec<String>) -> Result<Vec<Vec<f32>>, EmbedError> {
-        Err(EmbedError::Api("Anthropic does not support embeddings".to_string()))
+        Err(EmbedError::Api(
+            "Anthropic does not support embeddings".to_string(),
+        ))
     }
 
     fn supports_batch(&self) -> bool {

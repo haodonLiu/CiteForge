@@ -8,6 +8,11 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
+      // Mock Tauri APIs in browser dev mode
+      '@tauri-apps/api/core': path.resolve(__dirname, './lib/tauri-mocks/core.ts'),
+      '@tauri-apps/api/event': path.resolve(__dirname, './lib/tauri-mocks/event.ts'),
+      '@tauri-apps/api/window': path.resolve(__dirname, './lib/tauri-mocks/window.ts'),
+      '@tauri-apps/plugin-dialog': path.resolve(__dirname, './lib/tauri-mocks/plugin-dialog.ts'),
     },
   },
   build: {

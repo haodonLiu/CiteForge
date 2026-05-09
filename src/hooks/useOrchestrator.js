@@ -43,9 +43,8 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     }
     return to.concat(ar || Array.prototype.slice.call(from));
 };
-import { listen } from '@tauri-apps/api/event';
+import { listen, invoke } from '@/lib/tauri';
 import { useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 export function useOrchestrator(taskId) {
     var _this = this;
     var _a = useState([]), events = _a[0], setEvents = _a[1];

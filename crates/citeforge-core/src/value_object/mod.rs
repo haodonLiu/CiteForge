@@ -1,7 +1,7 @@
 pub mod citation;
-pub mod score;
 pub mod document_metadata;
+pub mod score;
 
 pub use citation::Citation;
-pub use score::{Score, ScoreComponents};
 pub use document_metadata::DocumentMetadata;
+pub use score::{Score, ScoreComponents};

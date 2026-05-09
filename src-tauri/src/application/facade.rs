@@ -1,10 +1,8 @@
-use std::sync::Arc;
-use tauri::{AppHandle, Emitter};
-use tokio::sync::broadcast;
 use crate::application::container::AppContainer;
 use crate::domain::TaskActor;
 use citeforge_core::entity::Task;
-use citeforge_core::event::TaskEvent;
+use std::sync::Arc;
+use tauri::{AppHandle, Emitter};
 
 pub struct AppFacade {
     container: Arc<AppContainer>,
@@ -41,7 +39,8 @@ impl AppFacade {
             topic,
             pdf_paths,
             &self.container.config.workspace.root,
-        ).await;
+        )
+        .await;
 
         // Forward task events to frontend
         let handle = app_handle.clone();
@@ -57,17 +56,28 @@ impl AppFacade {
     }
 
     pub async fn get_status(&self, task_id: &str) -> anyhow::Result<Task> {
-        self.container.db.get_task(task_id).await.map_err(|e| e.into())
+        self.container
+            .db
+            .get_task(task_id)
+            .await
+            .map_err(|e| e.into())
     }
 
     pub async fn resume_task(&self, task_id: &str) -> anyhow::Result<String> {
-        let task = self.container.db.get_task(task_id).await
+        let task = self
+            .container
+            .db
+            .get_task(task_id)
+            .await
             .map_err(|e| anyhow::anyhow!("task not found: {}", e))?;
 
         match &task.state {
             citeforge_core::entity::TaskState::Completed
             | citeforge_core::entity::TaskState::Failed { .. } => {
-                return Err(anyhow::anyhow!("task is in terminal state: {:?}", task.state));
+                return Err(anyhow::anyhow!(
+                    "task is in terminal state: {:?}",
+                    task.state
+                ));
             }
             _ => {}
         }
@@ -79,7 +89,8 @@ impl AppFacade {
             task.topic.clone(),
             Vec::new(),
             &self.container.config.workspace.root,
-        ).await;
+        )
+        .await;
 
         Ok(task.id)
     }

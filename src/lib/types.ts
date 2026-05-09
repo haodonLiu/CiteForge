@@ -170,9 +170,16 @@ export interface ChromaConfig {
   embedding_dimension: number;
 }
 
+export interface FontSettings {
+  font_family: string;
+  font_size: number;
+  line_height: number;
+}
+
 export interface AppSettings {
   llm: LlmConfig;
   chroma: ChromaConfig;
+  font?: FontSettings;
 }
 
 export interface TextIndexEntry {

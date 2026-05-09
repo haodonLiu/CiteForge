@@ -1,24 +1,20 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home,
   BookOpen,
-  FileText,
-  Edit3,
-  Bot,
   Settings,
   ChevronDown,
   Plus,
   Sun,
   Moon,
+  FolderOpen,
 } from 'lucide-react';
 import { useAppStore, type AppTheme } from '@/lib/store';
 
-const quickAccess = [
+const globalNav = [
+  { to: '/', label: '工作台', icon: Home },
   { to: '/library', label: '文献库', icon: BookOpen },
-  { to: '/reader/1', label: '阅读器', icon: FileText },
-  { to: '/editor/1', label: '编辑器', icon: Edit3 },
-  { to: '/agent', label: 'Agent 对话', icon: Bot },
   { to: '/settings', label: '设置', icon: Settings },
 ];
 
@@ -29,6 +25,7 @@ const themes: { id: AppTheme; icon: typeof Sun; label: string }[] = [
 
 export default function Sidebar() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const [recentExpanded, setRecentExpanded] = useState(true);
   const tasks = useAppStore((s) => s.tasks);
   const currentTaskId = useAppStore((s) => s.currentTaskId);
@@ -36,7 +33,6 @@ export default function Sidebar() {
   const setTheme = useAppStore((s) => s.setTheme);
 
   const recentTasks = Object.values(tasks).slice(0, 5);
-  const activeTask = currentTaskId ? tasks[currentTaskId] : null;
 
   const statusColors: Record<string, string> = {
     Pending: 'bg-text-muted',
@@ -48,25 +44,49 @@ export default function Sidebar() {
     Failed: 'bg-error',
   };
 
-  const agentLabels: Record<string, string> = {
-    Researcher: 'Researcher',
-    Analyst: 'Analyst',
-    Writer: 'Writer',
-  };
-
   return (
-    <aside className="w-[260px] h-screen bg-surface border-r border-border flex flex-col shrink-0">
-      <div className="h-12 px-4 flex items-center border-b border-border">
-        <h1 className="text-sm font-semibold text-primary tracking-tight">CiteForge</h1>
+    <aside className="w-[220px] h-screen bg-surface border-r border-border flex flex-col shrink-0">
+      {/* Brand */}
+      <div className="h-11 px-4 flex items-center border-b border-border">
+        <FolderOpen size={16} className="text-primary mr-2" />
+        <h1 className="text-sm font-semibold text-text-primary tracking-tight">CiteForge</h1>
         <span className="ml-2 text-[11px] text-text-muted font-medium">v0.1</span>
       </div>
 
       <div className="flex-1 overflow-y-auto">
+        {/* Global Navigation */}
+        <div className="p-2">
+          <div className="text-[10px] font-medium text-text-muted uppercase tracking-wider mb-1.5 px-2">
+            全局
+          </div>
+          <div className="space-y-0.5">
+            {globalNav.map((item) => {
+              const Icon = item.icon;
+              const isActive = item.to === '/' ? pathname === '/' : pathname.startsWith(item.to);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={`flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-all ${
+                    isActive
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+                  }`}
+                >
+                  <Icon size={14} className={isActive ? 'text-primary' : 'text-text-muted'} />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Recent Projects */}
         {recentTasks.length > 0 && (
-          <div className="p-3">
+          <div className="px-2 pt-2 pb-1">
             <button
               onClick={() => setRecentExpanded(!recentExpanded)}
-              className="flex items-center justify-between w-full text-[11px] font-medium text-text-muted uppercase tracking-wider mb-2 hover:text-text-secondary"
+              className="flex items-center justify-between w-full text-[10px] font-medium text-text-muted uppercase tracking-wider mb-1.5 px-2 hover:text-text-secondary transition-colors"
             >
               <span>最近项目</span>
               <ChevronDown
@@ -79,10 +99,12 @@ export default function Sidebar() {
               <div className="space-y-0.5">
                 {recentTasks.map((task) => {
                   const isActive = task.id === currentTaskId;
+                  const taskPath = `/task/${task.id}`;
                   return (
-                    <button
+                    <Link
                       key={task.id}
-                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] text-left transition-all ${
+                      to={taskPath}
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[12px] text-left transition-all ${
                         isActive
                           ? 'bg-primary/10 text-primary'
                           : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
@@ -90,14 +112,16 @@ export default function Sidebar() {
                     >
                       <div
                         className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                          isActive ? 'bg-primary' : 'bg-text-muted'
+                          isActive
+                            ? statusColors[task.status] || 'bg-primary'
+                            : 'bg-text-muted'
                         }`}
                       />
-                      <span className="truncate flex-1">{task.topic}</span>
+                      <span className="truncate flex-1">{task.topic || '未命名项目'}</span>
                       <span className="text-[10px] text-text-muted shrink-0">
-                        {Math.round(task.progress * 100)}%
+                        {Math.round((task.progress || 0) * 100)}%
                       </span>
-                    </button>
+                    </Link>
                   );
                 })}
               </div>
@@ -105,74 +129,21 @@ export default function Sidebar() {
           </div>
         )}
 
-        {activeTask && (
-          <div className="px-3 pb-3">
-            <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-2">
-              当前任务
-            </div>
-            <div className="p-3 bg-card border border-border rounded-md">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="flex gap-1">
-                  {[0.25, 0.5, 0.75, 1.0].map((threshold, i) => (
-                    <div
-                      key={i}
-                      className={`w-2 h-2 rounded-full ${
-                        activeTask.progress >= threshold
-                          ? statusColors[activeTask.status] || 'bg-primary'
-                          : 'bg-surface-hover'
-                      }`}
-                    />
-                  ))}
-                </div>
-                <span className="text-xs text-text-secondary">
-                  {agentLabels[activeTask.currentAgent || ''] || activeTask.status}
-                </span>
-              </div>
-              <div className="w-full h-1 bg-surface-hover rounded-full overflow-hidden mb-1">
-                <div
-                  className="h-full bg-primary rounded-full transition-all duration-300"
-                  style={{ width: `${activeTask.progress * 100}%` }}
-                />
-              </div>
-              {activeTask.lastAction && (
-                <p className="text-[11px] text-text-muted truncate">{activeTask.lastAction}</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        <div className="px-3 pb-3">
-          <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-2">
-            快速入口
-          </div>
-          <div className="space-y-0.5">
-            {quickAccess.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname.startsWith(item.to);
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={`flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-all ${
-                    isActive
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
-                  }`}
-                >
-                  <Icon size={14} className={isActive ? 'text-primary' : 'text-text-muted'} />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
+        {/* New Project Button */}
+        <div className="px-4 py-2">
+          <button
+            onClick={() => navigate('/')}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-xs text-text-secondary bg-surface-hover hover:bg-surface-hover/80 hover:text-text-primary transition-colors border border-border"
+          >
+            <Plus size={12} />
+            <span>新建项目</span>
+          </button>
         </div>
       </div>
 
-      <div className="p-3 border-t border-border">
-        <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-2">
-          主题切换
-        </div>
-        <div className="flex gap-2">
+      {/* Theme Toggle */}
+      <div className="p-2 border-t border-border">
+        <div className="flex gap-1.5 px-2">
           {themes.map((t) => {
             const Icon = t.icon;
             const isActive = currentTheme === t.id;
@@ -180,14 +151,14 @@ export default function Sidebar() {
               <button
                 key={t.id}
                 onClick={() => setTheme(t.id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[12px] transition-all ${
+                title={t.label}
+                className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded text-[11px] transition-all ${
                   isActive
                     ? 'bg-primary/10 text-primary border border-primary/30'
                     : 'bg-surface-hover text-text-secondary hover:bg-surface-hover/80'
                 }`}
               >
-                <Icon size={12} />
-                <span>{t.label}</span>
+                <Icon size={14} />
               </button>
             );
           })}

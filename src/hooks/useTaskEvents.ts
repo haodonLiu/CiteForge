@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
-import { isTauri, tauriListen } from '@/lib/tauri';
+import { listen, isTauri } from '@/lib/tauri';
 import type { TaskEvent } from '@/lib/types';
 
 export function useTaskEvents() {
@@ -9,12 +9,12 @@ export function useTaskEvents() {
   useEffect(() => {
     if (!isTauri) return;
 
-    const unlisten = tauriListen<TaskEvent>('task-event', (event) => {
+    const unlisten = listen<TaskEvent>('task-event', (event: { payload: TaskEvent }) => {
       updateTaskFromEvent(event.payload);
     });
 
     return () => {
-      unlisten.then((fn) => fn());
+      unlisten.then((fn: () => void) => fn());
     };
   }, [updateTaskFromEvent]);
 }

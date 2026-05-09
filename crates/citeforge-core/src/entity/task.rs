@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
@@ -129,6 +129,11 @@ mod tests {
     #[test]
     fn test_can_fail_from_any_non_terminal() {
         let mut task = Task::new("t1".into(), "topic".into());
-        assert!(task.transition(TaskState::Failed { error: "e".into(), retry_count: 0 }).is_ok());
+        assert!(task
+            .transition(TaskState::Failed {
+                error: "e".into(),
+                retry_count: 0
+            })
+            .is_ok());
     }
 }

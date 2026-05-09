@@ -36,8 +36,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useState, useEffect, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+import { invoke, listen } from '@/lib/tauri';
 import { Layers, AlertTriangle, RefreshCw, ChevronRight, ChevronDown } from 'lucide-react';
 import Button from '@/components/ui/Button';
 var SECTION_TYPE_COLORS = {

@@ -1,12 +1,19 @@
-import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { useState, useEffect, useCallback } from 'react';
+import { invoke } from '@/lib/tauri';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Badge from '@/components/ui/Badge';
 import { useAppStore, type AppTheme } from '@/lib/store';
-import type { AppSettings } from '@/lib/types';
+import {
+  fontPresets,
+  applyFontSettings,
+  persistFontSettings,
+  defaultFontSettings,
+  getStoredFontSettings,
+} from '@/lib/theme';
+import type { AppSettings, FontSettings } from '@/lib/types';
 
 type TabId = 'llm' | 'chroma' | 'theme' | 'about';
 
@@ -42,6 +49,7 @@ const defaultSettings: AppSettings = {
     collection: 'citeforge',
     embedding_dimension: 1536,
   },
+  font: { ...defaultFontSettings },
 };
 
 export default function Settings() {
@@ -53,6 +61,11 @@ export default function Settings() {
   const currentTheme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
 
+  // Font settings local state for real-time preview
+  const [fontFamily, setFontFamily] = useState(defaultFontSettings.font_family);
+  const [fontSize, setFontSize] = useState(defaultFontSettings.font_size);
+  const [lineHeight, setLineHeight] = useState(defaultFontSettings.line_height);
+
   useEffect(() => {
     loadSettings();
   }, []);
@@ -60,12 +73,33 @@ export default function Settings() {
   async function loadSettings() {
     try {
       setLoading(true);
-      const data = await invoke<{ llm: any; chroma: any }>('get_settings');
+      const data = await invoke<{ llm: any; chroma: any; font?: string }>('get_settings');
+
+      let loadedFont: FontSettings = { ...defaultFontSettings };
+      if (data.font) {
+        try {
+          const parsed = JSON.parse(data.font);
+          loadedFont = {
+            font_family: parsed.font_family ?? defaultFontSettings.font_family,
+            font_size: parsed.font_size ?? defaultFontSettings.font_size,
+            line_height: parsed.line_height ?? defaultFontSettings.line_height,
+          };
+        } catch {
+          // ignore
+        }
+      } else {
+        // Fallback to localStorage
+        loadedFont = getStoredFontSettings();
+      }
+
       setSettings({
         llm: {
-          provider: data.llm.provider === 'OpenAI' || data.llm.provider === 'Anthropic' || data.llm.provider === 'Ollama'
-            ? data.llm.provider as 'OpenAI' | 'Anthropic' | 'Ollama'
-            : 'Ollama',
+          provider:
+            data.llm.provider === 'OpenAI' ||
+            data.llm.provider === 'Anthropic' ||
+            data.llm.provider === 'Ollama'
+              ? (data.llm.provider as 'OpenAI' | 'Anthropic' | 'Ollama')
+              : 'Ollama',
           base_url: data.llm.base_url || 'http://localhost:11434',
           api_key: data.llm.api_key || undefined,
           model: data.llm.model || 'llama3',
@@ -76,7 +110,16 @@ export default function Settings() {
           collection: data.chroma.collection || 'citeforge',
           embedding_dimension: data.chroma.embedding_dimension || 1536,
         },
+        font: loadedFont,
       });
+
+      // Sync font local state
+      setFontFamily(loadedFont.font_family);
+      setFontSize(loadedFont.font_size);
+      setLineHeight(loadedFont.line_height);
+
+      // Apply on load
+      applyFontSettings(loadedFont);
     } catch (e) {
       console.error('failed to load settings:', e);
       setMessage({ type: 'error', text: '加载配置失败' });
@@ -89,21 +132,31 @@ export default function Settings() {
     try {
       setSaving(true);
       setMessage(null);
+
+      const fontSettings: FontSettings = {
+        font_family: fontFamily,
+        font_size: fontSize,
+        line_height: lineHeight,
+      };
+
       const settingsToSave = {
-      llm: {
-        provider: settings.llm.provider,
-        base_url: settings.llm.base_url,
-        api_key: settings.llm.api_key || null,
-        model: settings.llm.model,
-        timeout_secs: settings.llm.timeout_secs ?? null,
-      },
-      chroma: {
-        url: settings.chroma.url,
-        collection: settings.chroma.collection,
-        embedding_dimension: settings.chroma.embedding_dimension,
-      },
-    };
-    await invoke('save_settings', { settings: settingsToSave });
+        llm: {
+          provider: settings.llm.provider,
+          base_url: settings.llm.base_url,
+          api_key: settings.llm.api_key || null,
+          model: settings.llm.model,
+          timeout_secs: settings.llm.timeout_secs ?? null,
+        },
+        chroma: {
+          url: settings.chroma.url,
+          collection: settings.chroma.collection,
+          embedding_dimension: settings.chroma.embedding_dimension,
+        },
+        font: JSON.stringify(fontSettings),
+      };
+
+      await invoke('save_settings', { settings: settingsToSave });
+      persistFontSettings(fontSettings);
       setMessage({ type: 'success', text: '配置已保存' });
     } catch (e) {
       console.error('failed to save settings:', e);
@@ -114,21 +167,30 @@ export default function Settings() {
   }
 
   function updateLlm<K extends keyof AppSettings['llm']>(key: K, value: AppSettings['llm'][K]) {
-    setSettings(s => ({
+    setSettings((s) => ({
       ...s,
       llm: { ...s.llm, [key]: value },
     }));
   }
 
   function updateChroma<K extends keyof AppSettings['chroma']>(key: K, value: AppSettings['chroma'][K]) {
-    setSettings(s => ({
+    setSettings((s) => ({
       ...s,
       chroma: { ...s.chroma, [key]: value },
     }));
   }
 
+  // Real-time preview for font settings
+  const previewFontSettings = useCallback(() => {
+    applyFontSettings({ font_family: fontFamily, font_size: fontSize, line_height: lineHeight });
+  }, [fontFamily, fontSize, lineHeight]);
+
+  useEffect(() => {
+    previewFontSettings();
+  }, [previewFontSettings]);
+
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="h-full overflow-auto p-6 max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">设置</h1>
@@ -138,18 +200,20 @@ export default function Settings() {
 
       {/* Message Banner */}
       {message && (
-        <div className={`mb-4 p-3 rounded-lg text-sm ${
-          message.type === 'success'
-            ? 'bg-success/10 text-success border border-success/20'
-            : 'bg-error/10 text-error border border-error/20'
-        }`}>
+        <div
+          className={`mb-4 p-3 rounded-lg text-sm ${
+            message.type === 'success'
+              ? 'bg-success/10 text-success border border-success/20'
+              : 'bg-error/10 text-error border border-error/20'
+          }`}
+        >
           {message.text}
         </div>
       )}
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-surface rounded-lg p-1">
-        {tabs.map(tab => (
+        {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -183,7 +247,7 @@ export default function Settings() {
                       </label>
                       <Select
                         value={settings.llm.provider}
-                        onChange={e => updateLlm('provider', e.target.value as any)}
+                        onChange={(e) => updateLlm('provider', e.target.value as any)}
                         className="w-full"
                       >
                         <option value="OpenAI">OpenAI</option>
@@ -197,7 +261,7 @@ export default function Settings() {
                       </label>
                       <Input
                         value={settings.llm.model}
-                        onChange={e => updateLlm('model', e.target.value)}
+                        onChange={(e) => updateLlm('model', e.target.value)}
                         placeholder="e.g., llama3, gpt-4"
                       />
                     </div>
@@ -208,7 +272,9 @@ export default function Settings() {
                       <Input
                         type="number"
                         value={settings.llm.timeout_secs || ''}
-                        onChange={e => updateLlm('timeout_secs', e.target.value ? parseInt(e.target.value) : undefined)}
+                        onChange={(e) =>
+                          updateLlm('timeout_secs', e.target.value ? parseInt(e.target.value) : undefined)
+                        }
                         placeholder="60"
                       />
                     </div>
@@ -220,7 +286,7 @@ export default function Settings() {
                     </label>
                     <Input
                       value={settings.llm.base_url}
-                      onChange={e => updateLlm('base_url', e.target.value)}
+                      onChange={(e) => updateLlm('base_url', e.target.value)}
                       placeholder="http://localhost:11434"
                     />
                     <p className="text-xs text-text-muted mt-1">
@@ -239,7 +305,7 @@ export default function Settings() {
                     <Input
                       type="password"
                       value={settings.llm.api_key ?? ''}
-                      onChange={e => updateLlm('api_key', e.target.value || undefined)}
+                      onChange={(e) => updateLlm('api_key', e.target.value || undefined)}
                       placeholder={settings.llm.provider === 'Ollama' ? '留空使用本地模型' : 'sk-...'}
                     />
                   </div>
@@ -263,7 +329,7 @@ export default function Settings() {
                     </label>
                     <Input
                       value={settings.chroma.url}
-                      onChange={e => updateChroma('url', e.target.value)}
+                      onChange={(e) => updateChroma('url', e.target.value)}
                       placeholder="http://localhost:8000"
                     />
                   </div>
@@ -275,7 +341,7 @@ export default function Settings() {
                       </label>
                       <Input
                         value={settings.chroma.collection}
-                        onChange={e => updateChroma('collection', e.target.value)}
+                        onChange={(e) => updateChroma('collection', e.target.value)}
                         placeholder="citeforge"
                       />
                     </div>
@@ -285,7 +351,7 @@ export default function Settings() {
                       </label>
                       <Select
                         value={settings.chroma.embedding_dimension.toString()}
-                        onChange={e => updateChroma('embedding_dimension', parseInt(e.target.value))}
+                        onChange={(e) => updateChroma('embedding_dimension', parseInt(e.target.value))}
                         className="w-full"
                       >
                         <option value="768">768 (e5-base, all-MiniLM)</option>
@@ -310,36 +376,138 @@ export default function Settings() {
           )}
 
           {activeTab === 'theme' && (
-            <Card>
-              <h2 className="text-lg font-semibold text-text-primary mb-6">选择主题</h2>
-              <div className="grid grid-cols-2 gap-4">
-                {themes.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => setTheme(t.id)}
-                    className={`p-4 rounded-lg border-2 text-left transition-all ${
-                      currentTheme === t.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50 bg-surface'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className={`w-4 h-4 rounded-full ${
-                        t.id === 'ivory_press' ? 'bg-[#faf8f5] border border-[#e0d8cc]' :
-                        t.id === 'midnight_scholar' ? 'bg-[#0b1120]' :
-                        t.id === 'green_garden' ? 'bg-[#f0f4f1]' :
-                        'bg-black'
-                      }`} />
-                      <span className="font-medium text-text-primary">{t.name}</span>
-                      {currentTheme === t.id && (
-                        <Badge variant="primary" className="ml-auto">当前</Badge>
-                      )}
+            <div className="space-y-6">
+              {/* Theme selector */}
+              <Card>
+                <h2 className="text-lg font-semibold text-text-primary mb-6">选择主题</h2>
+                <div className="grid grid-cols-2 gap-4">
+                  {themes.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setTheme(t.id)}
+                      className={`p-4 rounded-lg border-2 text-left transition-all ${
+                        currentTheme === t.id
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50 bg-surface'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <div
+                          className={`w-4 h-4 rounded-full ${
+                            t.id === 'ivory_press'
+                              ? 'bg-[#faf8f5] border border-[#e0d8cc]'
+                              : t.id === 'midnight_scholar'
+                              ? 'bg-[#0b1120]'
+                              : t.id === 'green_garden'
+                              ? 'bg-[#f0f4f1]'
+                              : 'bg-black'
+                          }`}
+                        />
+                        <span className="font-medium text-text-primary">{t.name}</span>
+                        {currentTheme === t.id && (
+                          <Badge variant="primary" className="ml-auto">
+                            当前
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-text-muted">{t.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </Card>
+
+              {/* Font settings */}
+              <Card>
+                <h2 className="text-lg font-semibold text-text-primary mb-6">字体设置</h2>
+                <div className="space-y-5">
+                  {/* Font family */}
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                      字体
+                    </label>
+                    <Select
+                      value={fontFamily}
+                      onChange={(e) => setFontFamily(e.target.value)}
+                      className="w-full"
+                    >
+                      {fontPresets.map((preset) => (
+                        <option key={preset.value} value={preset.value}>
+                          {preset.label}
+                        </option>
+                      ))}
+                    </Select>
+                    <p className="text-xs text-text-muted mt-1">
+                      更改后立即预览，保存后持久化
+                    </p>
+                  </div>
+
+                  {/* Font size */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium text-text-secondary">字号</label>
+                      <span className="text-xs font-mono text-text-muted bg-surface px-2 py-0.5 rounded">
+                        {fontSize}px
+                      </span>
                     </div>
-                    <p className="text-sm text-text-muted">{t.desc}</p>
-                  </button>
-                ))}
-              </div>
-            </Card>
+                    <input
+                      type="range"
+                      min={12}
+                      max={20}
+                      step={1}
+                      value={fontSize}
+                      onChange={(e) => setFontSize(parseInt(e.target.value))}
+                      className="w-full h-1.5 bg-surface-hover rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-[10px] text-text-muted mt-1">
+                      <span>12px</span>
+                      <span>16px</span>
+                      <span>20px</span>
+                    </div>
+                  </div>
+
+                  {/* Line height */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium text-text-secondary">行高</label>
+                      <span className="text-xs font-mono text-text-muted bg-surface px-2 py-0.5 rounded">
+                        {lineHeight.toFixed(1)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1.4}
+                      max={2.0}
+                      step={0.1}
+                      value={lineHeight}
+                      onChange={(e) => setLineHeight(parseFloat(e.target.value))}
+                      className="w-full h-1.5 bg-surface-hover rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-[10px] text-text-muted mt-1">
+                      <span>紧凑 1.4</span>
+                      <span>舒适 1.7</span>
+                      <span>宽松 2.0</span>
+                    </div>
+                  </div>
+
+                  {/* Preview */}
+                  <div className="p-4 bg-surface rounded-lg border border-border">
+                    <div className="text-[10px] font-medium text-text-muted uppercase tracking-wider mb-2">
+                      实时预览
+                    </div>
+                    <p
+                      className="text-text-primary"
+                      style={{
+                        fontFamily: fontPresets.find((p) => p.value === fontFamily)?.stack || fontFamily,
+                        fontSize: `${fontSize}px`,
+                        lineHeight: `${lineHeight}`,
+                      }}
+                    >
+                      科研写作是一项需要专注与耐心的工作。合适的字体和排版能显著提升阅读与写作体验。
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
           )}
 
           {activeTab === 'about' && (
@@ -380,9 +548,13 @@ export default function Settings() {
               <Card>
                 <h3 className="text-sm font-semibold text-text-secondary mb-3">技术栈</h3>
                 <div className="flex flex-wrap gap-2">
-                  {['Rust', 'Tauri 2', 'React', 'TypeScript', 'Vite', 'SQLite', 'ChromaDB'].map(tech => (
-                    <Badge key={tech} variant="default">{tech}</Badge>
-                  ))}
+                  {['Rust', 'Tauri 2', 'React', 'TypeScript', 'Vite', 'SQLite', 'ChromaDB'].map(
+                    (tech) => (
+                      <Badge key={tech} variant="default">
+                        {tech}
+                      </Badge>
+                    )
+                  )}
                 </div>
               </Card>
             </div>

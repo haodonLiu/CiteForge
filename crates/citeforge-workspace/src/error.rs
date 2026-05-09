@@ -1,5 +1,5 @@
-use thiserror::Error;
 use citeforge_core::error::CiteForgeError;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum WorkspaceError {

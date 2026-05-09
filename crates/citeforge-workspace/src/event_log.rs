@@ -1,9 +1,9 @@
-use std::path::{Path, PathBuf};
-use std::fs::{self, OpenOptions};
-use std::io::{BufRead, BufReader, Write};
-use tokio::sync::Mutex;
 use crate::error::WorkspaceError;
 use citeforge_core::event::AgentEvent;
+use std::fs::{self, OpenOptions};
+use std::io::{BufRead, BufReader, Write};
+use std::path::{Path, PathBuf};
+use tokio::sync::Mutex;
 
 pub struct EventLog {
     path: PathBuf,
@@ -13,7 +13,10 @@ pub struct EventLog {
 impl EventLog {
     pub fn new(workspace_root: &Path, task_id: &str) -> Self {
         let path = workspace_root.join(task_id).join("events.log");
-        Self { path, writer: Mutex::new(()) }
+        Self {
+            path,
+            writer: Mutex::new(()),
+        }
     }
 
     pub async fn append(&self, event: &AgentEvent) -> Result<(), WorkspaceError> {
@@ -24,8 +27,8 @@ impl EventLog {
             .open(&self.path)
             .map_err(|e| WorkspaceError::Serde(format!("failed to open events.log: {}", e)))?;
 
-        let line = serde_json::to_string(event)
-            .map_err(|e| WorkspaceError::Serde(e.to_string()))?;
+        let line =
+            serde_json::to_string(event).map_err(|e| WorkspaceError::Serde(e.to_string()))?;
         writeln!(file, "{}", line)
             .map_err(|e| WorkspaceError::Serde(format!("failed to write event: {}", e)))?;
         Ok(())

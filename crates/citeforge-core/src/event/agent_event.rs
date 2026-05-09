@@ -55,7 +55,12 @@ pub struct AgentEvent {
 }
 
 impl AgentEvent {
-    pub fn new(source: EventSource, event_type: EventType, payload: serde_json::Value, requires_action: bool) -> Self {
+    pub fn new(
+        source: EventSource,
+        event_type: EventType,
+        payload: serde_json::Value,
+        requires_action: bool,
+    ) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
             timestamp: Utc::now(),
@@ -74,8 +79,8 @@ impl AgentEvent {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum GapSeverity {
-    Minor,    // <3 篇，自动回退
-    Major,    // ≥3 篇，Checkpoint 暂停
+    Minor, // <3 篇，自动回退
+    Major, // ≥3 篇，Checkpoint 暂停
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

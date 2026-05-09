@@ -1,21 +1,15 @@
+use chrono::Local;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::Path;
 use tokio::fs;
 use tokio::sync::RwLock;
-use std::collections::HashMap;
-use chrono::Local;
 
 use crate::error::WorkspaceError;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TimeRecords {
     pub entries: HashMap<String, u32>, // date string -> minutes
-}
-
-impl Default for TimeRecords {
-    fn default() -> Self {
-        Self { entries: HashMap::new() }
-    }
 }
 
 #[derive(Debug)]
@@ -46,10 +40,10 @@ impl TimeTracker {
 
     async fn save_to_file(&self) -> Result<(), WorkspaceError> {
         let records = self.records.read().await;
-        let json = serde_json::to_string_pretty(&*records)
-            .map_err(WorkspaceError::serde)?;
-        fs::write(&self.file_path, json).await
-            .map_err(|e| WorkspaceError::io(e))?;
+        let json = serde_json::to_string_pretty(&*records).map_err(WorkspaceError::serde)?;
+        fs::write(&self.file_path, json)
+            .await
+            .map_err(WorkspaceError::io)?;
         Ok(())
     }
 
@@ -110,7 +104,7 @@ impl TimeTracker {
                 *last = Some(now);
 
                 // Save periodically (every 5 minutes)
-                if elapsed % 5 == 0 {
+                if elapsed.is_multiple_of(5) {
                     drop(records);
                     let _ = self.save_to_file().await;
                 }

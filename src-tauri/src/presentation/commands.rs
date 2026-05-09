@@ -1,28 +1,15 @@
-use std::sync::Arc;
-use std::path::Path;
-use tauri::{State, Emitter};
 use crate::application::AppContainer;
 use citeforge_core::event::AgentEvent;
-use citeforge_pdf::parser::{TextIndexEntry, OutlineEntry};
+use citeforge_pdf::parser::{OutlineEntry, TextIndexEntry};
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RunTaskRequest {
-    pub topic: String,
-    pub pdf_paths: Vec<String>,
-}
+use std::path::Path;
+use std::sync::Arc;
+use tauri::{Emitter, State};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TaskResponse {
     pub task_id: String,
     pub status: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct DraftStats {
-    pub total_words: u32,
-    pub total_chars: u32,
-    pub last_modified: Option<u64>,
 }
 
 fn validate_pdf_paths(paths: &[String], workspace_root: &Path) -> Result<(), String> {
@@ -31,7 +18,8 @@ fn validate_pdf_paths(paths: &[String], workspace_root: &Path) -> Result<(), Str
         if path.is_relative() {
             return Err(format!("PDF path must be absolute: {}", path_str));
         }
-        let canonical = path.canonicalize()
+        let canonical = path
+            .canonicalize()
             .map_err(|e| format!("cannot read PDF path {}: {}", path_str, e))?;
         if !canonical.starts_with(workspace_root) {
             return Err(format!("PDF path outside workspace: {}", path_str));
@@ -57,7 +45,10 @@ pub async fn run_task(
     validate_pdf_paths(&pdf_paths, &container.config.workspace.root)?;
 
     let facade = crate::application::AppFacade::new(container.inner().clone());
-    let task_id = facade.run_task(topic, pdf_paths, app_handle.clone()).await.map_err(|e| e.to_string())?;
+    let task_id = facade
+        .run_task(topic, pdf_paths, app_handle.clone())
+        .await
+        .map_err(|e| e.to_string())?;
 
     Ok(TaskResponse {
         task_id,
@@ -71,7 +62,10 @@ pub async fn resume_task(
     container: State<'_, Arc<AppContainer>>,
 ) -> Result<TaskResponse, String> {
     let facade = crate::application::AppFacade::new(container.inner().clone());
-    let task_id = facade.resume_task(&task_id).await.map_err(|e| e.to_string())?;
+    let task_id = facade
+        .resume_task(&task_id)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(TaskResponse {
         task_id,
         status: "Resuming".to_string(),
@@ -84,41 +78,13 @@ pub async fn get_task_status(
     container: State<'_, Arc<AppContainer>>,
 ) -> Result<TaskResponse, String> {
     let facade = crate::application::AppFacade::new(container.inner().clone());
-    let task = facade.get_status(&task_id).await.map_err(|e| e.to_string())?;
+    let task = facade
+        .get_status(&task_id)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(TaskResponse {
         task_id: task.id,
         status: format!("{:?}", task.state),
-    })
-}
-
-#[tauri::command]
-pub async fn get_draft_stats(
-    workspace_id: String,
-    container: State<'_, Arc<AppContainer>>,
-) -> Result<DraftStats, String> {
-    // Validate workspace_id to prevent path traversal
-    if workspace_id.contains('/') || workspace_id.contains('\\') || workspace_id.contains("..") {
-        return Err("invalid workspace_id".to_string());
-    }
-
-    let draft_path = container.config.workspace.root.join(&workspace_id).join("draft.md");
-
-    let content = tokio::fs::read_to_string(&draft_path)
-        .await
-        .map_err(|e| format!("failed to read draft.md: {}", e))?;
-    let word_count = content.split_whitespace().count() as u32;
-    let char_count = content.chars().count() as u32;
-
-    let last_modified = draft_path
-        .metadata()
-        .ok()
-        .and_then(|m| m.modified().ok())
-        .map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs());
-
-    Ok(DraftStats {
-        total_words: word_count,
-        total_chars: char_count,
-        last_modified,
     })
 }
 
@@ -128,7 +94,7 @@ pub async fn get_agent_context() -> Result<String, String> {
     let context = crate::agent::AgentContext::load_from_path(&config_dir)
         .await
         .map_err(|e| e.to_string())?;
-    Ok(serde_json::to_string(&context).map_err(|e| e.to_string())?)
+    serde_json::to_string(&context).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -138,7 +104,7 @@ pub async fn get_agent_personalities() -> Result<String, String> {
         crate::agent::personality::AgentPersonality::motivational_mentor(),
         crate::agent::personality::AgentPersonality::critical_thinker(),
     ];
-    Ok(serde_json::to_string(&personalities).map_err(|e| e.to_string())?)
+    serde_json::to_string(&personalities).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -147,7 +113,7 @@ pub async fn get_current_theme() -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn set_theme(theme_id: String) -> Result<(), String> {
+pub async fn set_theme(_theme_id: String) -> Result<(), String> {
     // TODO: Save to config
     Ok(())
 }
@@ -175,9 +141,7 @@ pub struct SettingsDto {
 }
 
 #[tauri::command]
-pub async fn get_settings(
-    container: State<'_, Arc<AppContainer>>,
-) -> Result<SettingsDto, String> {
+pub async fn get_settings(container: State<'_, Arc<AppContainer>>) -> Result<SettingsDto, String> {
     Ok(SettingsDto {
         llm: LlmConfigDto {
             provider: format!("{:?}", container.config.llm.provider),
@@ -199,7 +163,7 @@ pub async fn save_settings(
     settings: SettingsDto,
     container: State<'_, Arc<AppContainer>>,
 ) -> Result<(), String> {
-    use crate::config::{LlmProvider, AppConfig};
+    use crate::config::{AppConfig, LlmProvider};
 
     // Validate provider
     let provider = match settings.llm.provider.to_lowercase().as_str() {
@@ -231,8 +195,7 @@ pub async fn save_settings(
     let config_path = container.config.workspace.root.join("config.yaml");
     let yaml = serde_yaml::to_string(&new_config)
         .map_err(|e| format!("failed to serialize config: {}", e))?;
-    std::fs::write(&config_path, yaml)
-        .map_err(|e| format!("failed to write config: {}", e))?;
+    std::fs::write(&config_path, yaml).map_err(|e| format!("failed to write config: {}", e))?;
 
     tracing::info!("settings saved to {:?}", config_path);
     Ok(())
@@ -246,7 +209,10 @@ pub async fn get_events(
 ) -> Result<Vec<AgentEvent>, String> {
     let event_log = citeforge_workspace::EventLog::new(&container.config.workspace.root, &task_id);
     match since {
-        Some(after_id) => event_log.load_since(&after_id).await.map_err(|e| e.to_string()),
+        Some(after_id) => event_log
+            .load_since(&after_id)
+            .await
+            .map_err(|e| e.to_string()),
         None => event_log.load_all().await.map_err(|e| e.to_string()),
     }
 }
@@ -288,19 +254,18 @@ pub async fn subscribe_events(
 #[tauri::command]
 pub async fn generate_text_index(
     file_path: String,
-    container: State<'_, Arc<AppContainer>>,
+    _container: State<'_, Arc<AppContainer>>,
 ) -> Result<Vec<TextIndexEntry>, String> {
     let path = std::path::Path::new(&file_path);
     if !path.exists() {
         return Err(format!("file not found: {}", file_path));
     }
 
-    let bytes = std::fs::read(path)
-        .map_err(|e| format!("failed to read file: {}", e))?;
+    let bytes = std::fs::read(path).map_err(|e| format!("failed to read file: {}", e))?;
 
     let parser = citeforge_pdf::PdfParser;
-    let doc = lopdf::Document::load_mem(&bytes)
-        .map_err(|e| format!("failed to parse PDF: {}", e))?;
+    let doc =
+        lopdf::Document::load_mem(&bytes).map_err(|e| format!("failed to parse PDF: {}", e))?;
 
     Ok(parser.generate_text_index(&doc))
 }
@@ -308,19 +273,18 @@ pub async fn generate_text_index(
 #[tauri::command]
 pub async fn generate_outline(
     file_path: String,
-    container: State<'_, Arc<AppContainer>>,
+    _container: State<'_, Arc<AppContainer>>,
 ) -> Result<Vec<OutlineEntry>, String> {
     let path = std::path::Path::new(&file_path);
     if !path.exists() {
         return Err(format!("file not found: {}", file_path));
     }
 
-    let bytes = std::fs::read(path)
-        .map_err(|e| format!("failed to read file: {}", e))?;
+    let bytes = std::fs::read(path).map_err(|e| format!("failed to read file: {}", e))?;
 
     let parser = citeforge_pdf::PdfParser;
-    let doc = lopdf::Document::load_mem(&bytes)
-        .map_err(|e| format!("failed to parse PDF: {}", e))?;
+    let doc =
+        lopdf::Document::load_mem(&bytes).map_err(|e| format!("failed to parse PDF: {}", e))?;
 
     Ok(parser.generate_outline(&doc))
 }
@@ -349,44 +313,58 @@ pub async fn analyze_paper_structure(
     }
 
     // Emit progress: starting
-    let _ = app_handle.emit("decomposition-progress", serde_json::json!({
-        "stage": "loading",
-        "progress": 10,
-        "message": "加载 PDF 文件..."
-    }));
+    let _ = app_handle.emit(
+        "decomposition-progress",
+        serde_json::json!({
+            "stage": "loading",
+            "progress": 10,
+            "message": "加载 PDF 文件..."
+        }),
+    );
 
-    let bytes = std::fs::read(path)
-        .map_err(|e| format!("failed to read file: {}", e))?;
+    let bytes = std::fs::read(path).map_err(|e| format!("failed to read file: {}", e))?;
 
     // Emit progress: parsing
-    let _ = app_handle.emit("decomposition-progress", serde_json::json!({
-        "stage": "parsing",
-        "progress": 30,
-        "message": "解析 PDF 文本和字体信息..."
-    }));
+    let _ = app_handle.emit(
+        "decomposition-progress",
+        serde_json::json!({
+            "stage": "parsing",
+            "progress": 30,
+            "message": "解析 PDF 文本和字体信息..."
+        }),
+    );
 
     // Emit progress: extracting structure
-    let _ = app_handle.emit("decomposition-progress", serde_json::json!({
-        "stage": "heading_detection",
-        "progress": 60,
-        "message": "检测章节标题和层级..."
-    }));
+    let _ = app_handle.emit(
+        "decomposition-progress",
+        serde_json::json!({
+            "stage": "heading_detection",
+            "progress": 60,
+            "message": "检测章节标题和层级..."
+        }),
+    );
 
     let structure = citeforge_pdf::structure::extract_structure_from_bytes(&bytes)?;
 
     // Emit progress: classifying sections
-    let _ = app_handle.emit("decomposition-progress", serde_json::json!({
-        "stage": "classification",
-        "progress": 90,
-        "message": "分类章节类型..."
-    }));
+    let _ = app_handle.emit(
+        "decomposition-progress",
+        serde_json::json!({
+            "stage": "classification",
+            "progress": 90,
+            "message": "分类章节类型..."
+        }),
+    );
 
     // Emit progress: complete
-    let _ = app_handle.emit("decomposition-progress", serde_json::json!({
-        "stage": "complete",
-        "progress": 100,
-        "message": format!("结构提取完成，发现 {} 个章节", structure.sections.len())
-    }));
+    let _ = app_handle.emit(
+        "decomposition-progress",
+        serde_json::json!({
+            "stage": "complete",
+            "progress": 100,
+            "message": format!("结构提取完成，发现 {} 个章节", structure.sections.len())
+        }),
+    );
 
     Ok(structure)
 }
@@ -401,9 +379,7 @@ pub struct TimeStatusDto {
 }
 
 #[tauri::command]
-pub async fn record_activity(
-    container: State<'_, Arc<AppContainer>>,
-) -> Result<(), String> {
+pub async fn record_activity(container: State<'_, Arc<AppContainer>>) -> Result<(), String> {
     // Start tracking if not already
     let started = container.time_tracker.start_tracking().await;
     if started {

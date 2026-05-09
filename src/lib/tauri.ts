@@ -1,33 +1,15 @@
-// Tauri API wrapper - provides stubs when not in Tauri environment
+// Tauri API wrapper - uses Vite aliases to redirect to mocks in browser dev mode
+import { invoke as tauriInvoke } from '@tauri-apps/api/core';
+import { listen as tauriListen } from '@tauri-apps/api/event';
+import { getCurrentWindow as tauriGetCurrentWindow } from '@tauri-apps/api/window';
+import { open as tauriOpen } from '@tauri-apps/plugin-dialog';
 
-export const isTauri = typeof window.__TAURI__ !== 'undefined';
+// Detect Tauri environment
+export const isTauri = typeof window !== 'undefined' &&
+  (window as any).__TAURI_INTERNALS__ !== undefined;
 
-export const tauriInvoke = async <T>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
-  if (!isTauri) {
-    throw new Error('Not in Tauri environment');
-  }
-  const { invoke } = await import('@tauri-apps/api/core');
-  return invoke<T>(cmd, args);
-};
-
-export const tauriGetWindow = () => {
-  if (!isTauri) {
-    return {
-      minimize: () => {},
-      toggleMaximize: () => {},
-      close: () => {},
-      startDragging: () => {},
-    };
-  }
-  // Use static import - it's OK since we're in a function, not module top-level
-  // The error only happens when the module itself tries to call Tauri APIs at load time
-  return window.__TAURI__.window.getCurrentWindow();
-};
-
-export async function tauriListen<T>(event: string, handler: (event: { payload: T }) => void) {
-  if (!isTauri) {
-    return () => {};
-  }
-  const { listen } = await import('@tauri-apps/api/event');
-  return listen<T>(event, handler);
-}
+// Re-export with same names - Vite aliases handle the mocking in dev mode
+export const invoke = tauriInvoke;
+export const listen = tauriListen;
+export const getCurrentWindow = tauriGetCurrentWindow;
+export const open = tauriOpen;

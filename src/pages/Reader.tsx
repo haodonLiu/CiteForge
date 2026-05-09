@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, lazy, Suspense } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
@@ -12,7 +13,13 @@ import TextSelectionMenu from '@/components/reader/TextSelectionMenu';
 import DecompositionPanel from '@/components/reader/DecompositionPanel';
 
 export default function Reader() {
-  const { id } = useParams<{ id: string }>();
+  const { taskId, docId, id: legacyId } = useParams<{
+    taskId: string;
+    docId: string;
+    id: string;
+  }>();
+  const effectiveDocId = docId || legacyId;
+
   const [filePath, setFilePath] = useState<string | null>(null);
   const [file, setFile] = useState<string | ArrayBuffer | null>(null);
   const [numPages, setNumPages] = useState(0);
@@ -26,49 +33,59 @@ export default function Reader() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showOutline, setShowOutline] = useState(true);
 
-  const { outline, searchResults, loading: indexLoading, generateIndex, search, clearSearch } = usePdfIndex();
+  const { outline, searchResults, loading: indexLoading, generateIndex, search, clearSearch } =
+    usePdfIndex();
 
   const handleVisiblePageChange = useCallback((page: number) => {
     setCurrentPage(page);
   }, []);
 
   const handleAddNote = useCallback((text: string, page: number) => {
-    setNotes(prev => [...prev, {
-      text,
-      page,
-      timestamp: new Date().toISOString(),
-    }]);
+    setNotes((prev) => [
+      ...prev,
+      {
+        text,
+        page,
+        timestamp: new Date().toISOString(),
+      },
+    ]);
   }, []);
 
   const handleInsertCitation = useCallback((text: string, page: number) => {
-    // TODO: 与 Writer Agent 集成，将选中文本作为引用插入草稿
-    console.log('Insert citation:', { text, page });
-  }, []);
+    // TODO: Integrate with Writer Agent to insert selected text as citation into draft
+    console.log('Insert citation:', { text, page, taskId });
+  }, [taskId]);
 
   const handleSearchSemantic = useCallback((text: string) => {
-    // TODO: 调用 Semantic Scholar API 搜索
+    // TODO: Call Semantic Scholar API
     console.log('Search semantic scholar:', text);
   }, []);
 
-  const handleSearch = useCallback(async (query: string) => {
-    setSearchQuery(query);
-    if (query.trim()) {
-      await search(query);
-    } else {
-      clearSearch();
-    }
-  }, [search, clearSearch]);
-
-  const jumpToPage = useCallback((page: number) => {
-    setCurrentPage(page);
-    const container = containerRef.current;
-    if (container) {
-      const scrollToPage = (container as any).__scrollToPage;
-      if (scrollToPage) {
-        scrollToPage(page);
+  const handleSearch = useCallback(
+    async (query: string) => {
+      setSearchQuery(query);
+      if (query.trim()) {
+        await search(query);
+      } else {
+        clearSearch();
       }
-    }
-  }, []);
+    },
+    [search, clearSearch]
+  );
+
+  const jumpToPage = useCallback(
+    (page: number) => {
+      setCurrentPage(page);
+      const container = containerRef.current;
+      if (container) {
+        const scrollToPage = (container as any).__scrollToPage;
+        if (scrollToPage) {
+          scrollToPage(page);
+        }
+      }
+    },
+    []
+  );
 
   const scrollToPage = useCallback((page: number) => {
     const container = containerRef.current;
@@ -80,29 +97,45 @@ export default function Reader() {
     }
   }, []);
 
-  // 键盘快捷键
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowUp' || e.key === 'PageUp') {
-      e.preventDefault();
-      setCurrentPage(p => Math.max(1, p - 1));
-      scrollToPage(Math.max(1, currentPage - 1));
-    } else if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
-      e.preventDefault();
-      setCurrentPage(p => Math.min(numPages, p + 1));
-      scrollToPage(Math.min(numPages, currentPage + 1));
-    }
-  }, [currentPage, numPages, scrollToPage]);
+  // Keyboard shortcuts
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+        e.preventDefault();
+        setCurrentPage((p) => Math.max(1, p - 1));
+        scrollToPage(Math.max(1, currentPage - 1));
+      } else if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+        e.preventDefault();
+        setCurrentPage((p) => Math.min(numPages, p + 1));
+        scrollToPage(Math.min(numPages, currentPage + 1));
+      }
+    },
+    [currentPage, numPages, scrollToPage]
+  );
 
   return (
     <div className="h-full flex flex-col" tabIndex={0} onKeyDown={handleKeyDown}>
+      {/* Toolbar */}
       <div className="h-10 flex items-center justify-between px-3 border-b border-border bg-surface shrink-0">
         <div className="flex items-center gap-3">
+          {taskId && (
+            <Link
+              to={`/task/${taskId}/literature`}
+              className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary transition-colors"
+            >
+              <ArrowLeft size={12} />
+              文献
+            </Link>
+          )}
+
+          <div className="w-px h-4 bg-border" />
+
           <div className="flex items-center gap-0.5">
             <Button
               size="sm"
               variant="ghost"
               onClick={() => {
-                setCurrentPage(p => Math.max(1, p - 1));
+                setCurrentPage((p) => Math.max(1, p - 1));
                 scrollToPage(Math.max(1, currentPage - 1));
               }}
               disabled={currentPage <= 1}
@@ -114,7 +147,7 @@ export default function Reader() {
               size="sm"
               variant="ghost"
               onClick={() => {
-                setCurrentPage(p => Math.min(numPages, p + 1));
+                setCurrentPage((p) => Math.min(numPages, p + 1));
                 scrollToPage(Math.min(numPages, currentPage + 1));
               }}
               disabled={currentPage >= numPages}
@@ -180,15 +213,17 @@ export default function Reader() {
         </div>
       </div>
 
-      {/* 主内容区 */}
+      {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* PDF 查看器 */}
+        {/* PDF viewer */}
         <div ref={containerRef} className="flex-1 overflow-hidden relative">
-          <Suspense fallback={
-            <div className="flex items-center justify-center h-full">
-              <div className="text-text-muted">加载 PDF 查看器...</div>
-            </div>
-          }>
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center h-full">
+                <div className="text-text-muted">加载 PDF 查看器...</div>
+              </div>
+            }
+          >
             <PdfVirtualViewer
               file={file}
               scale={scale}
@@ -197,23 +232,24 @@ export default function Reader() {
             />
           </Suspense>
 
-          {/* 批注层 */}
           <AnnotationLayer
             annotations={annotations}
             currentPage={currentPage}
             onAddAnnotation={(annotation) => {
-              setAnnotations(prev => [...prev, {
-                ...annotation,
-                id: Date.now().toString(),
-                created_at: new Date().toISOString(),
-              }]);
+              setAnnotations((prev) => [
+                ...prev,
+                {
+                  ...annotation,
+                  id: Date.now().toString(),
+                  created_at: new Date().toISOString(),
+                },
+              ]);
             }}
             onDeleteAnnotation={(id) => {
-              setAnnotations(prev => prev.filter(a => a.id !== id));
+              setAnnotations((prev) => prev.filter((a) => a.id !== id));
             }}
           />
 
-          {/* 文本选择菜单 */}
           <TextSelectionMenu
             onAddNote={handleAddNote}
             onInsertCitation={handleInsertCitation}
@@ -221,7 +257,7 @@ export default function Reader() {
           />
         </div>
 
-        {/* 侧边栏 */}
+        {/* Sidebar */}
         {showSidebar && (
           <div className="w-72 border-l border-border bg-surface flex flex-col overflow-hidden">
             {/* Tab bar */}
@@ -252,7 +288,7 @@ export default function Reader() {
             <div className="flex-1 overflow-auto">
               {sidebarTab === 'outline' && (
                 <>
-                  {/* 搜索框 */}
+                  {/* Search */}
                   <div className="p-3 border-b border-border">
                     <Input
                       value={searchQuery}
@@ -267,7 +303,7 @@ export default function Reader() {
                     )}
                   </div>
 
-                  {/* 搜索结果 */}
+                  {/* Search results */}
                   {searchResults.length > 0 && (
                     <div className="p-3 border-b border-border">
                       <h3 className="text-sm font-semibold text-text-primary mb-2">搜索结果</h3>
@@ -286,7 +322,7 @@ export default function Reader() {
                     </div>
                   )}
 
-                  {/* 大纲目录 */}
+                  {/* Outline */}
                   {outline.length > 0 && (
                     <div className="p-3 border-b border-border">
                       <div className="flex items-center justify-between mb-2">
@@ -316,7 +352,7 @@ export default function Reader() {
                     </div>
                   )}
 
-                  {/* 文档信息 */}
+                  {/* Document info */}
                   <div className="p-3 border-b border-border">
                     <h3 className="text-sm font-semibold text-text-primary mb-2">文档信息</h3>
                     <div className="space-y-1 text-sm">
@@ -335,7 +371,7 @@ export default function Reader() {
                     </div>
                   </div>
 
-                  {/* 快捷键 */}
+                  {/* Shortcuts */}
                   <div className="p-3 border-b border-border">
                     <h3 className="text-sm font-semibold text-text-primary mb-2">快捷键</h3>
                     <div className="space-y-1 text-xs text-text-secondary">
@@ -345,7 +381,7 @@ export default function Reader() {
                     </div>
                   </div>
 
-                  {/* 批注统计 */}
+                  {/* Annotation stats */}
                   <div className="p-3 border-b border-border">
                     <h3 className="text-sm font-semibold text-text-primary mb-2">批注统计</h3>
                     <div className="text-sm text-text-secondary">
@@ -353,13 +389,16 @@ export default function Reader() {
                     </div>
                   </div>
 
-                  {/* 笔记 */}
+                  {/* Notes */}
                   {notes.length > 0 && (
                     <div className="p-3">
                       <h3 className="text-sm font-semibold text-text-primary mb-2">笔记</h3>
                       <div className="space-y-2">
                         {notes.map((note, idx) => (
-                          <div key={idx} className="text-xs p-2 bg-surface rounded border border-border">
+                          <div
+                            key={idx}
+                            className="text-xs p-2 bg-surface rounded border border-border"
+                          >
                             <div className="text-text-muted mb-1">第 {note.page} 页</div>
                             <div className="text-text-primary line-clamp-3">{note.text}</div>
                           </div>
@@ -371,10 +410,7 @@ export default function Reader() {
               )}
 
               {sidebarTab === 'structure' && (
-                <DecompositionPanel
-                  filePath={filePath}
-                  onJumpToPage={jumpToPage}
-                />
+                <DecompositionPanel filePath={filePath} onJumpToPage={jumpToPage} />
               )}
             </div>
           </div>

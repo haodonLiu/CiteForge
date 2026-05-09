@@ -1,6 +1,6 @@
-use std::path::PathBuf;
-use serde::{Deserialize, Serialize};
 use anyhow::Context;
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AppConfig {
@@ -63,9 +63,7 @@ impl Default for AppConfig {
         std::fs::create_dir_all(&data_dir).ok();
 
         Self {
-            workspace: WorkspaceConfig {
-                root: data_dir,
-            },
+            workspace: WorkspaceConfig { root: data_dir },
             llm: LlmConfig {
                 provider: LlmProvider::Ollama,
                 base_url: "http://localhost:11434".to_string(),
@@ -83,8 +81,8 @@ impl AppConfig {
     pub fn from_file(path: &str) -> anyhow::Result<Self> {
         let contents = std::fs::read_to_string(path)
             .context(format!("failed to read config file: {}", path))?;
-        let config: AppConfig = serde_yaml::from_str(&contents)
-            .context("failed to parse config file")?;
+        let config: AppConfig =
+            serde_yaml::from_str(&contents).context("failed to parse config file")?;
         Ok(config)
     }
 }

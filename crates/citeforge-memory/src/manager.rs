@@ -35,11 +35,7 @@ impl MemoryManager {
     }
 
     /// Search memories by content substring.
-    pub async fn recall(
-        &self,
-        query: &str,
-        limit: usize,
-    ) -> Result<Vec<Memory>, MemoryError> {
+    pub async fn recall(&self, query: &str, limit: usize) -> Result<Vec<Memory>, MemoryError> {
         self.store.search(query, limit)
     }
 

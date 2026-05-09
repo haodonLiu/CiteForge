@@ -1,7 +1,7 @@
-pub mod error;
 pub mod db;
-pub mod lock;
+pub mod error;
 pub mod event_log;
+pub mod lock;
 pub mod time_tracker;
 
 pub use db::Database;

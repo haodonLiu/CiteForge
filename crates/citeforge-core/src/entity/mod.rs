@@ -1,14 +1,14 @@
-pub mod task;
-pub mod literature_entry;
-pub mod draft;
-pub mod theme;
+pub mod annotation;
 pub mod chunk;
 pub mod document;
-pub mod annotation;
+pub mod draft;
 pub mod literature;
+pub mod literature_entry;
+pub mod task;
+pub mod theme;
 
-pub use task::{Task, TaskState, InvalidTransition};
-pub use literature_entry::LiteratureEntry;
-pub use draft::Draft;
-pub use theme::Theme;
 pub use chunk::Chunk;
+pub use draft::Draft;
+pub use literature_entry::LiteratureEntry;
+pub use task::{InvalidTransition, Task, TaskState};
+pub use theme::Theme;

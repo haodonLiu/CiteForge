@@ -1,6 +1,5 @@
-import { listen } from '@tauri-apps/api/event';
+import { listen, invoke } from '@/lib/tauri';
 import { useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 
 export interface AgentEvent {
   id: string;
@@ -20,16 +19,16 @@ export function useOrchestrator(taskId: string | null) {
     if (!taskId) return;
 
     // Load existing events
-    invoke<AgentEvent[]>('get_events', { taskId }).then(existing => {
+    invoke<AgentEvent[]>('get_events', { taskId }).then((existing: AgentEvent[]) => {
       setEvents(existing);
-      const lastPhase = existing.findLast(e => e.event_type === 'StateTransition');
+      const lastPhase = existing.findLast((e: AgentEvent) => e.event_type === 'StateTransition');
       if (lastPhase) {
         setPhase((lastPhase.payload as any).to || 'Idle');
       }
     });
 
     // Subscribe to new events
-    const unlisten = listen<AgentEvent>('orchestrator-event', (e) => {
+    const unlisten = listen<AgentEvent>('orchestrator-event', (e: { payload: AgentEvent }) => {
       const event = e.payload;
 
       setEvents(prev => [...prev, event]);
@@ -43,7 +42,7 @@ export function useOrchestrator(taskId: string | null) {
       }
     });
 
-    return () => { unlisten.then(f => f()); };
+    return () => { unlisten.then((f: () => void) => f()); };
   }, [taskId]);
 
   const sendDecision = async (decision: string) => {

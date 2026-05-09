@@ -20,8 +20,17 @@ var __rest = (this && this.__rest) || function (s, e) {
         }
     return t;
 };
+var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
+    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+            ar[i] = from[i];
+        }
+    }
+    return to.concat(ar || Array.prototype.slice.call(from));
+};
 import { create } from 'zustand';
-import { setTheme as applyTheme, getStoredTheme } from './theme';
+import { setTheme as applyTheme, getStoredTheme, applyFontSettings, getStoredFontSettings } from './theme';
 var storedTheme = getStoredTheme();
 export var useAppStore = create(function (set) { return ({
     theme: storedTheme || 'ivory_press',
@@ -35,9 +44,20 @@ export var useAppStore = create(function (set) { return ({
             applyTheme(stored);
             set({ theme: stored });
         }
+        // Apply stored font settings on startup
+        var fontSettings = getStoredFontSettings();
+        applyFontSettings(fontSettings);
     },
     tasks: {},
     currentTaskId: null,
+    activities: [],
+    addActivity: function (activity) {
+        return set(function (state) { return ({
+            activities: __spreadArray([
+                __assign(__assign({}, activity), { id: "act-".concat(Date.now(), "-").concat(Math.random().toString(36).slice(2, 7)), timestamp: Date.now() })
+            ], state.activities.slice(0, 19), true),
+        }); });
+    },
     addTask: function (task) {
         return set(function (state) {
             var _a;

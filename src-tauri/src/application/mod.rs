@@ -1,8 +1,8 @@
+pub mod container;
 pub mod dto;
 pub mod facade;
-pub mod use_case;
 pub mod outbox;
-pub mod container;
+pub mod use_case;
 
-pub use facade::AppFacade;
 pub use container::AppContainer;
+pub use facade::AppFacade;

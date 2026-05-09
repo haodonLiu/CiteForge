@@ -47,10 +47,9 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { invoke } from '@tauri-apps/api/core';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useAppStore } from '@/lib/store';
+import { getCurrentWindow, invoke, isTauri } from '@/lib/tauri';
 var defaultStatus = {
     mode: 'time',
     silent_mode: false,
@@ -67,8 +66,40 @@ export function TitleBar() {
     var _d = useState(5 * 60 * 1000), silentThresholdMs = _d[0], setSilentThresholdMs = _d[1];
     var currentTaskId = useAppStore(function (s) { return s.currentTaskId; });
     var tasks = useAppStore(function (s) { return s.tasks; });
+    // Derive location label from pathname
+    var getLocationLabel = function () {
+        if (pathname === '/')
+            return '工作台';
+        if (pathname === '/library')
+            return '文献库';
+        if (pathname === '/settings')
+            return '设置';
+        if (pathname.startsWith('/task/')) {
+            var parts = pathname.split('/');
+            var taskId = parts[2];
+            var task = taskId ? tasks[taskId] : null;
+            var subRoute = parts[3];
+            var subLabels = {
+                literature: '文献',
+                reader: '阅读',
+                editor: '写作',
+                agent: 'Agent',
+            };
+            var subLabel = subRoute ? (subLabels[subRoute] || '') : '概览';
+            return "".concat((task === null || task === void 0 ? void 0 : task.topic) || '项目', " \u00B7 ").concat(subLabel);
+        }
+        if (pathname.startsWith('/reader/'))
+            return '阅读器';
+        if (pathname.startsWith('/editor/'))
+            return '编辑器';
+        if (pathname === '/agent')
+            return 'Agent';
+        return '';
+    };
     // Fetch time status including silent threshold from backend
     useEffect(function () {
+        if (!isTauri)
+            return;
         var fetchTimeStatus = function () { return __awaiter(_this, void 0, void 0, function () {
             var response, e_1;
             return __generator(this, function (_a) {
@@ -135,6 +166,8 @@ export function TitleBar() {
                         silentModeRef.current = false;
                         setStatus(function (prev) { return (__assign(__assign({}, prev), { silent_mode: false })); });
                     }
+                    if (!isTauri)
+                        return [2 /*return*/];
                     _a.label = 1;
                 case 1:
                     _a.trys.push([1, 3, , 4]);
@@ -165,7 +198,7 @@ export function TitleBar() {
     // Drag region setup
     useEffect(function () {
         var dragRegion = dragRegionRef.current;
-        if (!dragRegion)
+        if (!dragRegion || !isTauri)
             return;
         var win = getCurrentWindow();
         dragRegion.addEventListener('mousedown', function (e) {
@@ -179,35 +212,32 @@ export function TitleBar() {
             }
         });
     }, []);
-    // Window controls
-    var handleMinimize = useCallback(function () { return getCurrentWindow().minimize(); }, []);
-    var handleMaximize = useCallback(function () { return getCurrentWindow().toggleMaximize(); }, []);
-    var handleClose = useCallback(function () { return getCurrentWindow().close(); }, []);
+    // Window controls - only available in Tauri
+    var handleMinimize = useCallback(function () {
+        if (isTauri)
+            getCurrentWindow().minimize();
+    }, []);
+    var handleMaximize = useCallback(function () {
+        if (isTauri)
+            getCurrentWindow().toggleMaximize();
+    }, []);
+    var handleClose = useCallback(function () {
+        if (isTauri)
+            getCurrentWindow().close();
+    }, []);
     // Format time
     var formatTime = function (date) {
         return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
-    };
-    // Format date
-    var formatDate = function (date) {
-        var dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-        return "".concat(date.getMonth() + 1, "\u6708").concat(date.getDate(), "\u65E5 ").concat(dayNames[date.getDay()]);
     };
     // Format work time
     var formatWorkTime = function (minutes) {
         var hours = Math.floor(minutes / 60);
         var mins = minutes % 60;
         if (hours > 0) {
-            return "\u4ECA\u65E5\u5DF2\u5DE5\u4F5C ".concat(hours, "h").concat(mins, "m");
+            return "".concat(hours, "h").concat(mins, "m");
         }
-        return "\u4ECA\u65E5\u5DF2\u5DE5\u4F5C ".concat(mins, "m");
+        return "".concat(mins, "m");
     };
-    // Nav items
-    var navItems = [
-        { label: '文献', path: '/library' },
-        { label: '写作', path: '/editor/1' },
-        { label: 'Agent', path: '/agent' },
-    ];
-    var currentPath = pathname;
     // Status text
     var getStatusText = function () {
         if (status.silent_mode) {
@@ -216,7 +246,7 @@ export function TitleBar() {
         if (status.mode === 'task' && status.task_name) {
             return status.task_name;
         }
-        return "".concat(formatDate(currentTime), " ").concat(formatTime(currentTime));
+        return formatTime(currentTime);
     };
     var getStatusSubtext = function () {
         if (status.silent_mode) {
@@ -225,16 +255,11 @@ export function TitleBar() {
         if (status.mode === 'task') {
             return '处理中...';
         }
-        return formatWorkTime(todayMinutes);
+        return "\u4ECA\u65E5\u5DF2\u5DE5\u4F5C ".concat(formatWorkTime(todayMinutes));
     };
-    return (_jsxs("div", { className: "h-10 flex items-center justify-between bg-background/80 backdrop-blur border-b border-border select-none shrink-0", children: [_jsxs("div", { className: "flex items-center h-full ml-auto", children: [_jsx("button", { onClick: handleMinimize, className: "w-10 h-full flex items-center justify-center hover:bg-surface-hover transition-colors", "aria-label": "\u6700\u5C0F\u5316", children: _jsx("svg", { width: "10", height: "1", viewBox: "0 0 10 1", fill: "currentColor", className: "text-text-secondary", children: _jsx("rect", { width: "10", height: "1" }) }) }), _jsx("button", { onClick: handleMaximize, className: "w-10 h-full flex items-center justify-center hover:bg-surface-hover transition-colors", "aria-label": "\u6700\u5927\u5316", children: _jsx("svg", { width: "10", height: "10", viewBox: "0 0 10 10", fill: "none", stroke: "currentColor", className: "text-text-secondary", children: _jsx("rect", { x: "0.5", y: "0.5", width: "9", height: "9", strokeWidth: "1" }) }) }), _jsx("button", { onClick: handleClose, className: "w-10 h-full flex items-center justify-center hover:bg-error/20 transition-colors", "aria-label": "\u5173\u95ED", children: _jsxs("svg", { width: "10", height: "10", viewBox: "0 0 10 10", stroke: "currentColor", className: "text-text-secondary", children: [_jsx("line", { x1: "0", y1: "0", x2: "10", y2: "10", strokeWidth: "1.2" }), _jsx("line", { x1: "10", y1: "0", x2: "0", y2: "10", strokeWidth: "1.2" })] }) })] }), _jsx("div", { ref: dragRegionRef, className: "flex-1 h-full flex items-center justify-center cursor-default", onMouseDown: function (e) {
-                    if (e.buttons === 1 && e.detail === 2) {
+    return (_jsxs("div", { className: "h-10 flex items-center justify-between bg-background/80 backdrop-blur border-b border-border select-none shrink-0", children: [_jsx("div", { className: "flex items-center h-full px-4", children: _jsx("span", { className: "text-xs font-medium text-text-secondary", children: getLocationLabel() }) }), _jsx("div", { ref: dragRegionRef, className: "flex-1 h-full flex items-center justify-center cursor-default", onMouseDown: function (e) {
+                    if (isTauri && e.buttons === 1 && e.detail === 2) {
                         getCurrentWindow().toggleMaximize();
                     }
-                }, children: _jsxs("div", { className: "flex items-center gap-3", children: [_jsx("span", { className: "text-sm font-semibold text-text-primary", children: "CiteForge" }), _jsx("nav", { className: "flex gap-1", children: navItems.map(function (item) {
-                                var isActive = currentPath.startsWith(item.path);
-                                return (_jsx(Link, { to: item.path, className: "px-2 py-0.5 rounded text-xs font-medium transition-colors ".concat(isActive
-                                        ? 'bg-surface text-text-primary'
-                                        : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'), children: item.label }, item.path));
-                            }) }), _jsx("span", { className: "text-text-secondary text-xs", children: "|" }), _jsx("span", { className: "text-xs ".concat(status.silent_mode ? 'text-muted' : 'text-text-secondary'), children: getStatusText() }), status.silent_mode && (_jsx("span", { className: "text-xs text-muted", children: getStatusSubtext() }))] }) }), _jsx("div", { className: "w-[104px]" })] }));
+                }, children: _jsxs("div", { className: "flex items-center gap-2", children: [_jsx("span", { className: "text-xs ".concat(status.silent_mode ? 'text-muted' : 'text-text-secondary'), children: getStatusText() }), status.silent_mode && (_jsx("span", { className: "text-xs text-muted", children: getStatusSubtext() }))] }) }), _jsxs("div", { className: "flex items-center h-full", children: [_jsx("button", { onClick: handleMinimize, className: "w-10 h-full flex items-center justify-center hover:bg-surface-hover transition-colors", "aria-label": "\u6700\u5C0F\u5316", children: _jsx("svg", { width: "10", height: "1", viewBox: "0 0 10 1", fill: "currentColor", className: "text-text-secondary", children: _jsx("rect", { width: "10", height: "1" }) }) }), _jsx("button", { onClick: handleMaximize, className: "w-10 h-full flex items-center justify-center hover:bg-surface-hover transition-colors", "aria-label": "\u6700\u5927\u5316", children: _jsx("svg", { width: "10", height: "10", viewBox: "0 0 10 10", fill: "none", stroke: "currentColor", className: "text-text-secondary", children: _jsx("rect", { x: "0.5", y: "0.5", width: "9", height: "9", strokeWidth: "1" }) }) }), _jsx("button", { onClick: handleClose, className: "w-10 h-full flex items-center justify-center hover:bg-error/20 transition-colors", "aria-label": "\u5173\u95ED", children: _jsxs("svg", { width: "10", height: "10", viewBox: "0 0 10 10", stroke: "currentColor", className: "text-text-secondary", children: [_jsx("line", { x1: "0", y1: "0", x2: "10", y2: "10", strokeWidth: "1.2" }), _jsx("line", { x1: "10", y1: "0", x2: "0", y2: "10", strokeWidth: "1.2" })] }) })] })] }));
 }

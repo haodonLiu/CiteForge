@@ -1,7 +1,12 @@
 use crate::theme::{Theme, ThemeColors, ThemeFonts, ThemeSpacing};
 
 pub fn all_presets() -> Vec<Theme> {
-    vec![midnight_scholar(), classic_paper(), green_garden(), high_contrast()]
+    vec![
+        midnight_scholar(),
+        classic_paper(),
+        green_garden(),
+        high_contrast(),
+    ]
 }
 
 fn midnight_scholar() -> Theme {

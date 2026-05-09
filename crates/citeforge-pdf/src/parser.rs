@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use citeforge_core::ports::{DocumentParser, ParserError, ParsedDocument, Page};
+use citeforge_core::ports::{DocumentParser, Page, ParsedDocument, ParserError};
 use citeforge_core::value_object::DocumentMetadata;
 use lopdf::Document;
 use serde::{Deserialize, Serialize};
@@ -38,8 +38,7 @@ pub struct PdfParser;
 #[async_trait]
 impl DocumentParser for PdfParser {
     async fn parse(&self, bytes: &[u8]) -> Result<ParsedDocument, ParserError> {
-        let doc = Document::load_mem(bytes)
-            .map_err(|e| ParserError::ParseError(e.to_string()))?;
+        let doc = Document::load_mem(bytes).map_err(|e| ParserError::ParseError(e.to_string()))?;
 
         let mut warnings = Vec::new();
         let mut pages = Vec::new();
@@ -47,7 +46,10 @@ impl DocumentParser for PdfParser {
         for (page_num, _) in doc.get_pages().iter() {
             match doc.extract_text(&[*page_num]) {
                 Ok(text) if !text.is_empty() => {
-                    pages.push(Page { number: *page_num as usize, text });
+                    pages.push(Page {
+                        number: *page_num as usize,
+                        text,
+                    });
                 }
                 Ok(_) => {
                     warnings.push(ParseWarning::TextExtractionPartial {
@@ -64,7 +66,9 @@ impl DocumentParser for PdfParser {
         }
 
         let metadata = self.extract_metadata(&doc).unwrap_or_else(|| {
-            warnings.push(ParseWarning::MetadataMissing { field: "all".to_string() });
+            warnings.push(ParseWarning::MetadataMissing {
+                field: "all".to_string(),
+            });
             DocumentMetadata::default()
         });
 
@@ -74,7 +78,9 @@ impl DocumentParser for PdfParser {
 
 impl PdfParser {
     fn extract_metadata(&self, doc: &Document) -> Option<DocumentMetadata> {
-        let title = doc.trailer.get(b"Title")
+        let title = doc
+            .trailer
+            .get(b"Title")
             .ok()
             .and_then(|v| v.as_string().ok())
             .map(|s| s.into_owned());
@@ -166,7 +172,10 @@ impl PdfParser {
         }
 
         // 检测全大写标题：INTRODUCTION, RELATED WORK
-        if text.len() < 50 && text == text.to_uppercase() && text.chars().all(|c| c.is_alphabetic() || c == ' ') {
+        if text.len() < 50
+            && text == text.to_uppercase()
+            && text.chars().all(|c| c.is_alphabetic() || c == ' ')
+        {
             return Some(OutlineEntry {
                 title: text.to_string(),
                 page,
@@ -176,20 +185,43 @@ impl PdfParser {
 
         // 检测 Abstract, Keywords 等固定标题
         let known_headings = [
-            "abstract", "introduction", "related work", "methodology",
-            "method", "methods", "experiments", "results", "discussion",
-            "conclusion", "conclusions", "references", "acknowledgments",
-            "acknowledgements", "appendix", "background", "prior work",
-            "evaluation", "analysis", "findings", "summary",
+            "abstract",
+            "introduction",
+            "related work",
+            "methodology",
+            "method",
+            "methods",
+            "experiments",
+            "results",
+            "discussion",
+            "conclusion",
+            "conclusions",
+            "references",
+            "acknowledgments",
+            "acknowledgements",
+            "appendix",
+            "background",
+            "prior work",
+            "evaluation",
+            "analysis",
+            "findings",
+            "summary",
         ];
 
         let lower = text.to_lowercase();
         for heading in &known_headings {
-            if lower == *heading || lower.starts_with(&format!("{}:", heading)) || lower.starts_with(&format!("{}.", heading)) {
+            if lower == *heading
+                || lower.starts_with(&format!("{}:", heading))
+                || lower.starts_with(&format!("{}.", heading))
+            {
                 return Some(OutlineEntry {
                     title: text.to_string(),
                     page,
-                    level: if *heading == "abstract" || *heading == "introduction" || *heading == "conclusion" || *heading == "conclusions" {
+                    level: if *heading == "abstract"
+                        || *heading == "introduction"
+                        || *heading == "conclusion"
+                        || *heading == "conclusions"
+                    {
                         1
                     } else {
                         2

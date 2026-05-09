@@ -1,10 +1,10 @@
-use std::sync::Arc;
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use crate::application::AppContainer;
 use crate::domain::agent::{Agent, AgentError};
 use crate::domain::execution_context::TaskExecutionContext;
-use crate::application::AppContainer;
-use citeforge_core::entity::{Theme, LiteratureEntry};
+use async_trait::async_trait;
+use citeforge_core::entity::{LiteratureEntry, Theme};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AnalystInput {
@@ -34,15 +34,26 @@ impl Agent for AnalystAgent {
     type Input = AnalystInput;
     type Output = AnalystOutput;
 
-    fn name(&self) -> &'static str {
-        "AnalystAgent"
-    }
+    async fn run(
+        &self,
+        ctx: &TaskExecutionContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, AgentError> {
+        tracing::info!(
+            "AnalystAgent: analyzing {} literature entries",
+            input.literature_entries.len()
+        );
 
-    async fn run(&self, ctx: &TaskExecutionContext, input: Self::Input) -> Result<Self::Output, AgentError> {
-        tracing::info!("AnalystAgent: analyzing {} literature entries", input.literature_entries.len());
-
-        let entries_text: Vec<String> = input.literature_entries.iter()
-            .map(|e| format!("Title: {}\nAbstract: {}", e.title, e.abstract_text.as_deref().unwrap_or("")))
+        let entries_text: Vec<String> = input
+            .literature_entries
+            .iter()
+            .map(|e| {
+                format!(
+                    "Title: {}\nAbstract: {}",
+                    e.title,
+                    e.abstract_text.as_deref().unwrap_or("")
+                )
+            })
             .collect();
 
         let prompt = format!(
@@ -55,25 +66,27 @@ impl Agent for AnalystAgent {
             entries_text.join("\n---\n")
         );
 
-        let messages = vec![
-            citeforge_core::ports::ChatMessage {
-                role: "user".to_string(),
-                content: prompt,
-            }
-        ];
+        let messages = vec![citeforge_core::ports::ChatMessage {
+            role: "user".to_string(),
+            content: prompt,
+        }];
 
-        let response = ctx.run_with_timeout(async {
-            self.container.llm.chat(messages).await
-        }).await
-        .map_err(|_| AgentError::Timeout)?
-        .map_err(|e| AgentError::Llm(format!("LLM error: {}", e)))?;
+        let response = ctx
+            .run_with_timeout(async { self.container.llm.chat(messages).await })
+            .await
+            .map_err(|_| AgentError::Timeout)?
+            .map_err(|e| AgentError::Llm(format!("LLM error: {}", e)))?;
 
         // Parse JSON response - simplified for now
         let themes = self.parse_themes(&response, &input.literature_entries);
         let trends = vec!["Trend 1: Increasing focus on multi-modal models".to_string()];
         let gaps = vec!["Gap: Limited work on explainability".to_string()];
 
-        Ok(AnalystOutput { themes, trends, gaps })
+        Ok(AnalystOutput {
+            themes,
+            trends,
+            gaps,
+        })
     }
 }
 

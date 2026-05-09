@@ -35,7 +35,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 import { useState, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@/lib/tauri';
 export function usePdfIndex() {
     var _this = this;
     var _a = useState([]), textIndex = _a[0], setTextIndex = _a[1];

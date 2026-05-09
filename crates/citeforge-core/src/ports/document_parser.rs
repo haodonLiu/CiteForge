@@ -1,5 +1,5 @@
-use async_trait::async_trait;
 use crate::value_object::DocumentMetadata;
+use async_trait::async_trait;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ParserError {

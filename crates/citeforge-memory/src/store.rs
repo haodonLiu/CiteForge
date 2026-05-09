@@ -68,9 +68,7 @@ impl MemoryStore {
              FROM memories WHERE id = ?1",
         )?;
 
-        let mut rows = stmt.query_map(params![id.to_string()], |row| {
-            Self::row_to_memory(row)
-        })?;
+        let mut rows = stmt.query_map(params![id.to_string()], Self::row_to_memory)?;
 
         match rows.next() {
             Some(row) => Ok(Some(row?)),
@@ -102,8 +100,10 @@ impl MemoryStore {
     /// Delete a memory by id. Returns `true` if a row was actually removed.
     pub fn delete(&self, id: &Uuid) -> Result<bool, MemoryError> {
         let conn = self.conn.lock().expect("mutex poisoned");
-        let rows_deleted =
-            conn.execute("DELETE FROM memories WHERE id = ?1", params![id.to_string()])?;
+        let rows_deleted = conn.execute(
+            "DELETE FROM memories WHERE id = ?1",
+            params![id.to_string()],
+        )?;
         Ok(rows_deleted > 0)
     }
 
@@ -120,7 +120,8 @@ impl MemoryStore {
         let last_accessed_str: String = row.get(5)?;
         let access_count: u32 = row.get(6)?;
 
-        let id = Uuid::parse_str(&id).map_err(|e| rusqlite::Error::InvalidParameterName(e.to_string()))?;
+        let id = Uuid::parse_str(&id)
+            .map_err(|e| rusqlite::Error::InvalidParameterName(e.to_string()))?;
         let memory_type: MemoryType = serde_json::from_str(&memory_type_json)
             .map_err(|e| rusqlite::Error::InvalidParameterName(e.to_string()))?;
         let metadata: MemoryMetadata = serde_json::from_str(&metadata_json)

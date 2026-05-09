@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { TaskEvent } from './types';
-import { setTheme as applyTheme, getStoredTheme } from './theme';
+import { setTheme as applyTheme, getStoredTheme, applyFontSettings, getStoredFontSettings } from './theme';
 
 export type AppTheme = 'ivory_press' | 'midnight_scholar' | 'green_garden' | 'high_contrast';
 
@@ -56,6 +56,9 @@ export const useAppStore = create<AppStore>((set) => ({
       applyTheme(stored);
       set({ theme: stored });
     }
+    // Apply stored font settings on startup
+    const fontSettings = getStoredFontSettings();
+    applyFontSettings(fontSettings);
   },
 
   tasks: {},

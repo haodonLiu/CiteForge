@@ -1,17 +1,18 @@
-use std::sync::Arc;
-use anyhow::Context;
-use async_trait::async_trait;
 use crate::config::AppConfig;
 use crate::workspace::{Database, TimeTracker};
-use citeforge_core::ports::{ChatProvider, EmbedProvider, VectorStore, DocumentParser, SearchEngine, ChatMessage, ChatError, EmbedError, SearchError};
-use citeforge_core::ports::vector_store::SearchResult;
-use citeforge_core::entity::LiteratureEntry;
-use citeforge_core::value_object::DocumentMetadata;
+use async_trait::async_trait;
 use citeforge_chroma::ChromaError;
-use citeforge_llm::registry::LlmRegistry;
 use citeforge_chroma::ChromaStore;
+use citeforge_core::entity::LiteratureEntry;
+use citeforge_core::ports::vector_store::SearchResult;
+use citeforge_core::ports::{
+    ChatError, ChatMessage, ChatProvider, DocumentParser, EmbedError, EmbedProvider, SearchEngine,
+    SearchError, VectorStore,
+};
+use citeforge_core::value_object::DocumentMetadata;
+use citeforge_llm::registry::LlmRegistry;
 use citeforge_pdf::PdfParser;
-use crate::application::outbox::EventOutbox;
+use std::sync::Arc;
 
 pub struct AppContainer {
     pub config: AppConfig,
@@ -22,8 +23,6 @@ pub struct AppContainer {
     pub search: Arc<dyn SearchEngine>,
     pub vector_store: Arc<dyn VectorStore<Error = ChromaError>>,
     pub pdf_parser: Arc<dyn DocumentParser>,
-    pub outbox: Arc<EventOutbox>,
-    pub llm_registry: LlmRegistry,
 }
 
 /// Stub implementations for when services are unavailable
@@ -34,7 +33,9 @@ impl ChatProvider for StubChatProvider {
     async fn chat(&self, _messages: Vec<ChatMessage>) -> Result<String, ChatError> {
         Ok("LLM service not configured".to_string())
     }
-    fn provider_name(&self) -> &str { "stub" }
+    fn provider_name(&self) -> &str {
+        "stub"
+    }
 }
 
 struct StubEmbedProvider;
@@ -44,14 +45,20 @@ impl EmbedProvider for StubEmbedProvider {
     async fn embed(&self, _texts: Vec<String>) -> Result<Vec<Vec<f32>>, EmbedError> {
         Ok(vec![])
     }
-    fn supports_batch(&self) -> bool { false }
+    fn supports_batch(&self) -> bool {
+        false
+    }
 }
 
 struct StubSearchEngine;
 
 #[async_trait]
 impl SearchEngine for StubSearchEngine {
-    async fn search(&self, _query: &str, _limit: usize) -> Result<Vec<LiteratureEntry>, SearchError> {
+    async fn search(
+        &self,
+        _query: &str,
+        _limit: usize,
+    ) -> Result<Vec<LiteratureEntry>, SearchError> {
         Ok(vec![])
     }
 }
@@ -61,10 +68,27 @@ struct StubVectorStore;
 #[async_trait]
 impl VectorStore for StubVectorStore {
     type Error = ChromaError;
-    async fn add(&self, _id: &str, _embedding: Vec<f32>, _metadata: DocumentMetadata) -> Result<(), Self::Error> { Ok(()) }
-    async fn search(&self, _query: Vec<f32>, _top_k: usize) -> Result<Vec<SearchResult>, Self::Error> { Ok(vec![]) }
-    async fn delete(&self, _id: &str) -> Result<(), Self::Error> { Ok(()) }
-    async fn clear(&self) -> Result<(), Self::Error> { Ok(()) }
+    async fn add(
+        &self,
+        _id: &str,
+        _embedding: Vec<f32>,
+        _metadata: DocumentMetadata,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    async fn search(
+        &self,
+        _query: Vec<f32>,
+        _top_k: usize,
+    ) -> Result<Vec<SearchResult>, Self::Error> {
+        Ok(vec![])
+    }
+    async fn delete(&self, _id: &str) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    async fn clear(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
 }
 
 impl AppContainer {
@@ -131,7 +155,9 @@ impl AppContainer {
             match tokio::time::timeout(
                 std::time::Duration::from_secs(2),
                 chroma_store.ensure_collection(),
-            ).await {
+            )
+            .await
+            {
                 Ok(Ok(_)) => Arc::new(chroma_store),
                 _ => {
                     tracing::warn!("ChromaDB unavailable at {}, using stub", config.chroma.url);
@@ -142,8 +168,6 @@ impl AppContainer {
 
         let pdf_parser: Arc<dyn DocumentParser> = Arc::new(PdfParser);
 
-        let (outbox, _) = EventOutbox::new(Arc::clone(&db));
-
         Ok(Self {
             config,
             db,
@@ -153,8 +177,6 @@ impl AppContainer {
             search,
             vector_store,
             pdf_parser,
-            outbox: Arc::new(outbox),
-            llm_registry,
         })
     }
 }

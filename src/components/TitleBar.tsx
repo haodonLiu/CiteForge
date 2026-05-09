@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useAppStore } from '@/lib/store';
-import { isTauri, tauriInvoke, tauriGetWindow } from '@/lib/tauri';
+import { getCurrentWindow, invoke, isTauri } from '@/lib/tauri';
 
 type StatusMode = 'time' | 'task';
 
@@ -38,13 +38,38 @@ export function TitleBar() {
   const currentTaskId = useAppStore((s) => s.currentTaskId);
   const tasks = useAppStore((s) => s.tasks);
 
+  // Derive location label from pathname
+  const getLocationLabel = () => {
+    if (pathname === '/') return '工作台';
+    if (pathname === '/library') return '文献库';
+    if (pathname === '/settings') return '设置';
+    if (pathname.startsWith('/task/')) {
+      const parts = pathname.split('/');
+      const taskId = parts[2];
+      const task = taskId ? tasks[taskId] : null;
+      const subRoute = parts[3];
+      const subLabels: Record<string, string> = {
+        literature: '文献',
+        reader: '阅读',
+        editor: '写作',
+        agent: 'Agent',
+      };
+      const subLabel = subRoute ? (subLabels[subRoute] || '') : '概览';
+      return `${task?.topic || '项目'} · ${subLabel}`;
+    }
+    if (pathname.startsWith('/reader/')) return '阅读器';
+    if (pathname.startsWith('/editor/')) return '编辑器';
+    if (pathname === '/agent') return 'Agent';
+    return '';
+  };
+
   // Fetch time status including silent threshold from backend
   useEffect(() => {
     if (!isTauri) return;
 
     const fetchTimeStatus = async () => {
       try {
-        const response = await tauriInvoke<TimeStatusResponse>('get_time_status');
+        const response = await invoke<TimeStatusResponse>('get_time_status');
         setSilentThresholdMs(response.silent_threshold_minutes * 60 * 1000);
         setTodayMinutes(response.today_minutes);
       } catch (e) {
@@ -98,7 +123,7 @@ export function TitleBar() {
     }
     if (!isTauri) return;
     try {
-      await tauriInvoke('record_activity');
+      await invoke('record_activity');
     } catch (e) {
       console.error('Failed to record activity:', e);
     }
@@ -122,7 +147,7 @@ export function TitleBar() {
     const dragRegion = dragRegionRef.current;
     if (!dragRegion || !isTauri) return;
 
-    const win = tauriGetWindow();
+    const win = getCurrentWindow();
     dragRegion.addEventListener('mousedown', (e) => {
       if (e.buttons === 1) {
         if (e.detail === 2) {
@@ -136,13 +161,13 @@ export function TitleBar() {
 
   // Window controls - only available in Tauri
   const handleMinimize = useCallback(() => {
-    if (isTauri) tauriGetWindow().minimize();
+    if (isTauri) getCurrentWindow().minimize();
   }, []);
   const handleMaximize = useCallback(() => {
-    if (isTauri) tauriGetWindow().toggleMaximize();
+    if (isTauri) getCurrentWindow().toggleMaximize();
   }, []);
   const handleClose = useCallback(() => {
-    if (isTauri) tauriGetWindow().close();
+    if (isTauri) getCurrentWindow().close();
   }, []);
 
   // Format time
@@ -150,30 +175,15 @@ export function TitleBar() {
     return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
   };
 
-  // Format date
-  const formatDate = (date: Date) => {
-    const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    return `${date.getMonth() + 1}月${date.getDate()}日 ${dayNames[date.getDay()]}`;
-  };
-
   // Format work time
   const formatWorkTime = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     if (hours > 0) {
-      return `今日已工作 ${hours}h${mins}m`;
+      return `${hours}h${mins}m`;
     }
-    return `今日已工作 ${mins}m`;
+    return `${mins}m`;
   };
-
-  // Nav items
-  const navItems = [
-    { label: '文献', path: '/library' },
-    { label: '写作', path: '/editor/1' },
-    { label: 'Agent', path: '/agent' },
-  ];
-
-  const currentPath = pathname;
 
   // Status text
   const getStatusText = () => {
@@ -183,7 +193,7 @@ export function TitleBar() {
     if (status.mode === 'task' && status.task_name) {
       return status.task_name;
     }
-    return `${formatDate(currentTime)} ${formatTime(currentTime)}`;
+    return formatTime(currentTime);
   };
 
   const getStatusSubtext = () => {
@@ -193,13 +203,40 @@ export function TitleBar() {
     if (status.mode === 'task') {
       return '处理中...';
     }
-    return formatWorkTime(todayMinutes);
+    return `今日已工作 ${formatWorkTime(todayMinutes)}`;
   };
 
   return (
     <div className="h-10 flex items-center justify-between bg-background/80 backdrop-blur border-b border-border select-none shrink-0">
-      {/* Windows buttons - right side */}
-      <div className="flex items-center h-full ml-auto">
+      {/* Left: location label */}
+      <div className="flex items-center h-full px-4">
+        <span className="text-xs font-medium text-text-secondary">
+          {getLocationLabel()}
+        </span>
+      </div>
+
+      {/* Center: drag region with status */}
+      <div
+        ref={dragRegionRef}
+        className="flex-1 h-full flex items-center justify-center cursor-default"
+        onMouseDown={(e) => {
+          if (isTauri && e.buttons === 1 && e.detail === 2) {
+            getCurrentWindow().toggleMaximize();
+          }
+        }}
+      >
+        <div className="flex items-center gap-2">
+          <span className={`text-xs ${status.silent_mode ? 'text-muted' : 'text-text-secondary'}`}>
+            {getStatusText()}
+          </span>
+          {status.silent_mode && (
+            <span className="text-xs text-muted">{getStatusSubtext()}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Right: window controls */}
+      <div className="flex items-center h-full">
         <button
           onClick={handleMinimize}
           className="w-10 h-full flex items-center justify-center hover:bg-surface-hover transition-colors"
@@ -228,46 +265,6 @@ export function TitleBar() {
             <line x1="10" y1="0" x2="0" y2="10" strokeWidth="1.2" />
           </svg>
         </button>
-      </div>
-
-      {/* Drag region with status */}
-      <div
-        ref={dragRegionRef}
-        className="flex-1 h-full flex items-center justify-center cursor-default"
-        onMouseDown={(e) => {
-          if (e.buttons === 1 && e.detail === 2) {
-            getCurrentWindow().toggleMaximize();
-          }
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold text-text-primary">CiteForge</span>
-          <nav className="flex gap-1">
-            {navItems.map((item) => {
-              const isActive = currentPath.startsWith(item.path);
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
-                    isActive
-                      ? 'bg-surface text-text-primary'
-                      : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-          <span className="text-text-secondary text-xs">|</span>
-          <span className={`text-xs ${status.silent_mode ? 'text-muted' : 'text-text-secondary'}`}>
-            {getStatusText()}
-          </span>
-          {status.silent_mode && (
-            <span className="text-xs text-muted">{getStatusSubtext()}</span>
-          )}
-        </div>
       </div>
     </div>
   );

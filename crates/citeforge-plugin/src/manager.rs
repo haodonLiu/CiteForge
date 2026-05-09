@@ -30,7 +30,10 @@ impl PluginManager {
             plugin.enabled = true;
             Ok(())
         } else {
-            Err(PluginError::NotFound(format!("Plugin {} not found", plugin_id)))
+            Err(PluginError::NotFound(format!(
+                "Plugin {} not found",
+                plugin_id
+            )))
         }
     }
 
@@ -39,7 +42,10 @@ impl PluginManager {
             plugin.enabled = false;
             Ok(())
         } else {
-            Err(PluginError::NotFound(format!("Plugin {} not found", plugin_id)))
+            Err(PluginError::NotFound(format!(
+                "Plugin {} not found",
+                plugin_id
+            )))
         }
     }
 }

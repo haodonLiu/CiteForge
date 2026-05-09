@@ -1,8 +1,11 @@
-use std::sync::Arc;
 use async_trait::async_trait;
-use citeforge_core::ports::{ChatProvider, EmbedProvider, ChatMessage, ChatError, EmbedError, ChatProviderFactory, EmbedProviderFactory, ProviderConfig};
 use citeforge_core::error::CiteForgeError;
-use secrecy::{SecretString, ExposeSecret};
+use citeforge_core::ports::{
+    ChatError, ChatMessage, ChatProvider, ChatProviderFactory, EmbedError, EmbedProvider,
+    EmbedProviderFactory, ProviderConfig,
+};
+use secrecy::{ExposeSecret, SecretString};
+use std::sync::Arc;
 
 pub struct OpenAIProvider {
     api_key: SecretString,
@@ -33,12 +36,17 @@ impl OpenAIProvider {
 struct OpenAIFactory;
 
 impl ChatProviderFactory for OpenAIFactory {
-    fn name(&self) -> &'static str { "openai" }
+    fn name(&self) -> &'static str {
+        "openai"
+    }
 
     fn create(&self, config: &ProviderConfig) -> Result<Arc<dyn ChatProvider>, CiteForgeError> {
         Ok(Arc::new(OpenAIProvider::new(
             secrecy::SecretString::from(config.api_key.clone().unwrap_or_default()),
-            config.base_url.clone().unwrap_or_else(|| "https://api.openai.com".to_string()),
+            config
+                .base_url
+                .clone()
+                .unwrap_or_else(|| "https://api.openai.com".to_string()),
             config.model.clone().unwrap_or_else(|| "gpt-4".to_string()),
         )))
     }
@@ -47,13 +55,21 @@ impl ChatProviderFactory for OpenAIFactory {
 struct OpenAIEmbedFactory;
 
 impl EmbedProviderFactory for OpenAIEmbedFactory {
-    fn name(&self) -> &'static str { "openai" }
+    fn name(&self) -> &'static str {
+        "openai"
+    }
 
     fn create(&self, config: &ProviderConfig) -> Result<Arc<dyn EmbedProvider>, CiteForgeError> {
         Ok(Arc::new(OpenAIProvider::new(
             secrecy::SecretString::from(config.api_key.clone().unwrap_or_default()),
-            config.base_url.clone().unwrap_or_else(|| "https://api.openai.com".to_string()),
-            config.model.clone().unwrap_or_else(|| "text-embedding-ada-002".to_string()),
+            config
+                .base_url
+                .clone()
+                .unwrap_or_else(|| "https://api.openai.com".to_string()),
+            config
+                .model
+                .clone()
+                .unwrap_or_else(|| "text-embedding-ada-002".to_string()),
         )))
     }
 }
@@ -73,8 +89,13 @@ impl ChatProvider for OpenAIProvider {
             }).collect::<Vec<_>>()
         });
 
-        let resp = self.client.post(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key.expose_secret()))
+        let resp = self
+            .client
+            .post(&url)
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.api_key.expose_secret()),
+            )
             .json(&body)
             .send()
             .await
@@ -84,7 +105,9 @@ impl ChatProvider for OpenAIProvider {
             return Err(ChatError::Api(format!("API error: {}", resp.status())));
         }
 
-        let result: serde_json::Value = resp.json().await
+        let result: serde_json::Value = resp
+            .json()
+            .await
             .map_err(|e| ChatError::Network(e.to_string()))?;
 
         let content = result["choices"][0]["message"]["content"]
@@ -110,8 +133,13 @@ impl EmbedProvider for OpenAIProvider {
             "input": texts
         });
 
-        let resp = self.client.post(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key.expose_secret()))
+        let resp = self
+            .client
+            .post(&url)
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.api_key.expose_secret()),
+            )
             .json(&body)
             .send()
             .await
@@ -121,7 +149,9 @@ impl EmbedProvider for OpenAIProvider {
             return Err(EmbedError::Api(format!("API error: {}", resp.status())));
         }
 
-        let result: serde_json::Value = resp.json().await
+        let result: serde_json::Value = resp
+            .json()
+            .await
             .map_err(|e| EmbedError::Network(e.to_string()))?;
 
         parse_embeddings(&result)
@@ -143,7 +173,11 @@ fn parse_embeddings(result: &serde_json::Value) -> Result<Vec<Vec<f32>>, EmbedEr
             item["embedding"]
                 .as_array()
                 .ok_or_else(|| EmbedError::Api("missing 'embedding' in data item".to_string()))
-                .map(|arr| arr.iter().map(|v| v.as_f64().unwrap_or(0.0) as f32).collect())
+                .map(|arr| {
+                    arr.iter()
+                        .map(|v| v.as_f64().unwrap_or(0.0) as f32)
+                        .collect()
+                })
         })
         .collect::<Result<Vec<_>, _>>()?;
 
