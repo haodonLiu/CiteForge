@@ -27,3 +27,9 @@ config.yaml
 .worktrees/
 target/
 src-tauri/gen/
+
+# Build artifacts
+out/
+node_modules/
+src/node_modules/
+*.map
