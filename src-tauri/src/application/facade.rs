@@ -1,7 +1,10 @@
 use std::sync::Arc;
+use tauri::{AppHandle, Emitter};
+use tokio::sync::broadcast;
 use crate::application::container::AppContainer;
 use crate::domain::TaskActor;
 use citeforge_core::entity::Task;
+use citeforge_core::event::TaskEvent;
 
 pub struct AppFacade {
     container: Arc<AppContainer>,
@@ -12,7 +15,12 @@ impl AppFacade {
         Self { container }
     }
 
-    pub async fn run_task(&self, topic: String, pdf_paths: Vec<String>) -> anyhow::Result<String> {
+    pub async fn run_task(
+        &self,
+        topic: String,
+        pdf_paths: Vec<String>,
+        app_handle: AppHandle,
+    ) -> anyhow::Result<String> {
         let topic = topic.trim().to_string();
         if topic.is_empty() {
             return Err(anyhow::anyhow!("topic cannot be empty"));
@@ -26,7 +34,7 @@ impl AppFacade {
 
         self.container.db.save_task(&task).await?;
 
-        let (_rx, _agent_rx) = TaskActor::spawn(
+        let (task_rx, _agent_rx) = TaskActor::spawn(
             task_id.clone(),
             Arc::clone(&self.container),
             Arc::clone(&self.container.db),
@@ -34,6 +42,16 @@ impl AppFacade {
             pdf_paths,
             &self.container.config.workspace.root,
         ).await;
+
+        // Forward task events to frontend
+        let handle = app_handle.clone();
+        tokio::spawn(async move {
+            let mut rx = task_rx;
+            while let Ok(event) = rx.recv().await {
+                let payload = serde_json::to_value(&event).unwrap_or_default();
+                let _ = handle.emit("task-event", payload);
+            }
+        });
 
         Ok(task_id)
     }

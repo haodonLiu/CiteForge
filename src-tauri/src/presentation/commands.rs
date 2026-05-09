@@ -50,16 +50,7 @@ pub async fn run_task(
     validate_pdf_paths(&pdf_paths, &container.config.workspace.root)?;
 
     let facade = crate::application::AppFacade::new(container.inner().clone());
-    let task_id = facade.run_task(topic, pdf_paths).await.map_err(|e| e.to_string())?;
-
-    // Emit TaskStarted event
-    let event = serde_json::json!({
-        "type": "TaskStarted",
-        "payload": { "task_id": &task_id }
-    });
-    if let Err(e) = app_handle.emit("task-event", event) {
-        tracing::error!("failed to emit task event: {}", e);
-    }
+    let task_id = facade.run_task(topic, pdf_paths, app_handle.clone()).await.map_err(|e| e.to_string())?;
 
     Ok(TaskResponse {
         task_id,
