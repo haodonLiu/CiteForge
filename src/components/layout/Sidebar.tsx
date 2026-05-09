@@ -45,7 +45,7 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-[220px] h-screen bg-surface border-r border-border flex flex-col shrink-0">
+    <aside className="w-[220px] h-full bg-surface border-r border-border flex flex-col shrink-0">
       {/* Brand */}
       <div className="h-11 px-4 flex items-center border-b border-border">
         <FolderOpen size={16} className="text-primary mr-2" />
