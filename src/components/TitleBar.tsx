@@ -26,7 +26,6 @@ const defaultStatus: TitleBarStatus = {
 
 export function TitleBar() {
   const { pathname } = useLocation();
-  const dragRegionRef = useRef<HTMLDivElement>(null);
   const lastActivityRef = useRef<number>(Date.now());
   const silentModeRef = useRef<boolean>(false);
 
@@ -142,23 +141,6 @@ export function TitleBar() {
     };
   }, [recordActivity]);
 
-  // Drag region setup
-  useEffect(() => {
-    const dragRegion = dragRegionRef.current;
-    if (!dragRegion || !isTauri) return;
-
-    const win = getCurrentWindow();
-    dragRegion.addEventListener('mousedown', (e) => {
-      if (e.buttons === 1) {
-        if (e.detail === 2) {
-          win.toggleMaximize();
-        } else {
-          win.startDragging();
-        }
-      }
-    });
-  }, []);
-
   // Window controls - only available in Tauri
   const handleMinimize = useCallback(() => {
     if (isTauri) getCurrentWindow().minimize();
@@ -207,24 +189,19 @@ export function TitleBar() {
   };
 
   return (
-    <div className="h-10 flex items-center justify-between bg-background/80 backdrop-blur border-b border-border select-none shrink-0">
+    <div
+      className="h-10 flex items-center justify-between bg-background/80 backdrop-blur border-b border-border select-none shrink-0"
+      data-tauri-drag-region
+    >
       {/* Left: location label */}
-      <div className="flex items-center h-full px-4">
+      <div className="flex items-center h-full px-4" data-tauri-drag-region>
         <span className="text-xs font-medium text-text-secondary">
           {getLocationLabel()}
         </span>
       </div>
 
       {/* Center: drag region with status */}
-      <div
-        ref={dragRegionRef}
-        className="flex-1 h-full flex items-center justify-center cursor-default"
-        onMouseDown={(e) => {
-          if (isTauri && e.buttons === 1 && e.detail === 2) {
-            getCurrentWindow().toggleMaximize();
-          }
-        }}
-      >
+      <div className="flex-1 h-full flex items-center justify-center" data-tauri-drag-region>
         <div className="flex items-center gap-2">
           <span className={`text-xs ${status.silent_mode ? 'text-muted' : 'text-text-secondary'}`}>
             {getStatusText()}
@@ -236,7 +213,7 @@ export function TitleBar() {
       </div>
 
       {/* Right: window controls */}
-      <div className="flex items-center h-full">
+      <div className="flex items-center h-full" data-tauri-drag-region="false">
         <button
           onClick={handleMinimize}
           className="w-10 h-full flex items-center justify-center hover:bg-surface-hover transition-colors"
