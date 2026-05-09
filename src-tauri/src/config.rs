@@ -8,6 +8,13 @@ pub struct AppConfig {
     pub llm: LlmConfig,
     #[serde(default)]
     pub chroma: ChromaConfig,
+    /// Silent threshold in minutes (1-60, default 5)
+    #[serde(default = "default_silent_threshold")]
+    pub silent_threshold_minutes: u32,
+}
+
+fn default_silent_threshold() -> u32 {
+    5
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -67,6 +74,7 @@ impl Default for AppConfig {
                 timeout_secs: Some(60),
             },
             chroma: ChromaConfig::default(),
+            silent_threshold_minutes: 5,
         }
     }
 }

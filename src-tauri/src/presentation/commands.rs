@@ -186,6 +186,7 @@ pub async fn save_settings(
             collection: settings.chroma.collection,
             embedding_dimension: settings.chroma.embedding_dimension,
         },
+        silent_threshold_minutes: container.config.silent_threshold_minutes,
     };
 
     // Save to file
@@ -358,6 +359,7 @@ pub struct TimeStatusDto {
     pub today_minutes: u32,
     pub active_task: Option<String>,
     pub silent_mode: bool,
+    pub silent_threshold_minutes: u32,
 }
 
 #[tauri::command]
@@ -384,6 +386,7 @@ pub async fn get_time_status(
         today_minutes,
         active_task: None, // Will be filled when task events are integrated
         silent_mode: !is_tracking,
+        silent_threshold_minutes: container.config.silent_threshold_minutes,
     })
 }
 

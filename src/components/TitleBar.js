@@ -50,6 +50,11 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 import { Link, useLocation } from 'react-router-dom';
+import { useAppStore } from '@/lib/store';
+var defaultStatus = {
+    mode: 'time',
+    silent_mode: false,
+};
 export function TitleBar() {
     var _this = this;
     var pathname = useLocation().pathname;
@@ -57,8 +62,10 @@ export function TitleBar() {
     var lastActivityRef = useRef(Date.now());
     var silentModeRef = useRef(false);
     var _a = useState(new Date()), currentTime = _a[0], setCurrentTime = _a[1];
-    var _b = useState({ mode: 'time', silent_mode: false }), status = _b[0], setStatus = _b[1];
+    var _b = useState(defaultStatus), status = _b[0], setStatus = _b[1];
     var _c = useState(0), todayMinutes = _c[0], setTodayMinutes = _c[1];
+    var currentTaskId = useAppStore(function (s) { return s.currentTaskId; });
+    var tasks = useAppStore(function (s) { return s.tasks; });
     var SILENT_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
     // Time update
     useEffect(function () {
@@ -67,6 +74,20 @@ export function TitleBar() {
         }, 1000);
         return function () { return clearInterval(timer); };
     }, []);
+    // Sync task status from store
+    useEffect(function () {
+        if (currentTaskId && tasks[currentTaskId]) {
+            var task = tasks[currentTaskId];
+            setStatus({
+                mode: 'task',
+                task_name: task.topic || '处理中...',
+                silent_mode: false,
+            });
+        }
+        else {
+            setStatus({ mode: 'time', silent_mode: false });
+        }
+    }, [currentTaskId, tasks]);
     // Check silent mode
     useEffect(function () {
         var checkSilent = function () {

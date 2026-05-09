@@ -12,6 +12,14 @@ interface TitleBarStatus {
   silent_mode: boolean;
 }
 
+interface TimeStatusResponse {
+  is_tracking: boolean;
+  today_minutes: number;
+  active_task: string | null;
+  silent_mode: boolean;
+  silent_threshold_minutes: number;
+}
+
 const defaultStatus: TitleBarStatus = {
   mode: 'time',
   silent_mode: false,
@@ -26,11 +34,24 @@ export function TitleBar() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [status, setStatus] = useState<TitleBarStatus>(defaultStatus);
   const [todayMinutes, setTodayMinutes] = useState(0);
+  const [silentThresholdMs, setSilentThresholdMs] = useState(5 * 60 * 1000);
 
   const currentTaskId = useAppStore((s) => s.currentTaskId);
   const tasks = useAppStore((s) => s.tasks);
 
-  const SILENT_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+  // Fetch time status including silent threshold from backend
+  useEffect(() => {
+    const fetchTimeStatus = async () => {
+      try {
+        const response = await invoke<TimeStatusResponse>('get_time_status');
+        setSilentThresholdMs(response.silent_threshold_minutes * 60 * 1000);
+        setTodayMinutes(response.today_minutes);
+      } catch (e) {
+        console.error('Failed to fetch time status:', e);
+      }
+    };
+    fetchTimeStatus();
+  }, []);
 
   // Time update
   useEffect(() => {
@@ -58,14 +79,14 @@ export function TitleBar() {
   useEffect(() => {
     const checkSilent = () => {
       const idle = Date.now() - lastActivityRef.current;
-      if (idle >= SILENT_THRESHOLD_MS && !silentModeRef.current) {
+      if (idle >= silentThresholdMs && !silentModeRef.current) {
         silentModeRef.current = true;
         setStatus(prev => ({ ...prev, silent_mode: true }));
       }
     };
     const interval = setInterval(checkSilent, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [silentThresholdMs]);
 
   // Record activity
   const recordActivity = useCallback(async () => {
@@ -159,7 +180,7 @@ export function TitleBar() {
 
   const getStatusSubtext = () => {
     if (status.silent_mode) {
-      return '5分钟无操作';
+      return `${silentThresholdMs / 60000}分钟无操作`;
     }
     if (status.mode === 'task') {
       return '处理中...';
