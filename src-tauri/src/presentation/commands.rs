@@ -98,7 +98,9 @@ pub async fn get_draft_stats(
 ) -> Result<DraftStats, String> {
     let draft_path = container.config.workspace.root.join(&workspace_id).join("draft.md");
 
-    let content = tokio::fs::read_to_string(&draft_path).await.unwrap_or_default();
+    let content = tokio::fs::read_to_string(&draft_path)
+        .await
+        .map_err(|e| format!("failed to read draft.md: {}", e))?;
     let word_count = content.split_whitespace().count() as u32;
     let char_count = content.chars().count() as u32;
 
