@@ -1,4 +1,5 @@
 import { AgentPersonality } from '@/lib/types';
+import Button from '@/components/ui/Button';
 
 interface PersonalitySelectorProps {
   personalities: AgentPersonality[];
@@ -13,20 +14,17 @@ export default function PersonalitySelector({
 }: PersonalitySelectorProps) {
   return (
     <div className="p-4 border-b border-border">
-      <h2 className="text-sm font-semibold mb-2 text-secondary">选择 Agent 个性</h2>
+      <h2 className="text-xs font-semibold mb-2 text-text-muted uppercase tracking-wider">选择 Agent 个性</h2>
       <div className="flex gap-2">
         {personalities.map((p) => (
-          <button
+          <Button
             key={p.id}
+            variant={selected === p.id ? 'primary' : 'ghost'}
+            size="sm"
             onClick={() => onSelect(p.id)}
-            className={`px-3 py-1 rounded text-sm transition-colors ${
-              selected === p.id
-                ? 'bg-primary text-white'
-                : 'bg-surface hover:bg-surface-hover text-secondary'
-            }`}
           >
             {p.name}
-          </button>
+          </Button>
         ))}
       </div>
     </div>

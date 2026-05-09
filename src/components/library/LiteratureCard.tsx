@@ -1,56 +1,66 @@
+import { FileText, Globe } from 'lucide-react';
 import { Literature } from '@/lib/types';
+import Badge from '@/components/ui/Badge';
 
 interface LiteratureCardProps {
   literature: Literature;
   onSelect: (id: string) => void;
 }
 
+const statusVariant: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'error'> = {
+  Unread: 'default',
+  Reading: 'primary',
+  Read: 'success',
+  ToRead: 'warning',
+  Archived: 'default',
+};
+
 export default function LiteratureCard({ literature, onSelect }: LiteratureCardProps) {
-  const statusColors: Record<string, string> = {
-    Unread: 'bg-gray-500',
-    Reading: 'bg-blue-500',
-    Read: 'bg-green-500',
-    ToRead: 'bg-yellow-500',
-    Archived: 'bg-purple-500',
-  };
+  const isPdf = literature.source === 'pdf' || literature.file_path;
 
   return (
     <div
-      className="p-4 bg-card rounded-lg border border-border hover:border-primary cursor-pointer transition-colors"
       onClick={() => onSelect(literature.id)}
+      className="flex items-start gap-3 p-3 bg-card border border-border rounded-md hover:border-primary/30 transition-colors cursor-pointer"
     >
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <h3 className="font-semibold text-primary line-clamp-2">{literature.title}</h3>
-        <span className={`px-2 py-0.5 text-xs rounded ${statusColors[literature.read_status] || 'bg-gray-500'}`}>
-          {literature.read_status}
-        </span>
+      <div className="w-10 h-10 rounded bg-surface flex items-center justify-center text-text-muted shrink-0">
+        {isPdf ? <FileText size={18} /> : <Globe size={18} />}
       </div>
 
-      <p className="text-sm text-secondary mb-2">
-        {literature.authors.map(a => a.name).join(', ')}
-      </p>
-
-      {literature.abstract_text && (
-        <p className="text-sm text-muted line-clamp-2 mb-2">
-          {literature.abstract_text}
+      <div className="flex-1 min-w-0">
+        <h3 className="text-sm font-medium text-text-primary truncate">{literature.title}</h3>
+        <p className="text-xs text-text-secondary mt-0.5">
+          {literature.authors.map((a) => a.name).join(', ')}
+          {literature.year && ` · ${literature.year}`}
+          {literature.venue && ` · ${literature.venue}`}
+          {literature.citation_count && ` · 被引 ${literature.citation_count} 次`}
         </p>
-      )}
-
-      <div className="flex items-center gap-2 text-xs text-muted">
-        {literature.year && <span>{literature.year}</span>}
-        {literature.venue && <span>• {literature.venue}</span>}
-        {literature.citation_count && <span>• {literature.citation_count} 引用</span>}
-      </div>
-
-      {literature.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-2">
-          {literature.tags.slice(0, 3).map(tag => (
-            <span key={tag} className="px-2 py-0.5 text-xs bg-surface rounded">
+        <div className="flex gap-1.5 mt-2">
+          {literature.tags.slice(0, 3).map((tag) => (
+            <Badge key={tag} variant="secondary">
               {tag}
-            </span>
+            </Badge>
           ))}
         </div>
-      )}
+      </div>
+
+      <div className="flex flex-col items-end gap-1 shrink-0">
+        <div
+          className={`w-2 h-2 rounded-full ${
+            literature.read_status === 'Read'
+              ? 'bg-success'
+              : literature.read_status === 'Reading'
+              ? 'bg-warning'
+              : 'bg-text-muted'
+          }`}
+          title={literature.read_status}
+        />
+        {literature.read_progress > 0 && literature.read_progress < 1 && (
+          <span className="text-[10px] text-text-muted">
+            {Math.round(literature.read_progress * 100)}%
+          </span>
+        )}
+      </div>
     </div>
   );
 }

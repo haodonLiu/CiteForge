@@ -1,3 +1,5 @@
+import Button from '@/components/ui/Button';
+
 interface AnnotationToolbarProps {
   onAddHighlight: () => void;
   onAddUnderline: () => void;
@@ -25,38 +27,26 @@ export default function AnnotationToolbar({
 
   return (
     <div className="flex items-center gap-2 p-2 border-b border-border bg-surface">
-      <button
-        onClick={onAddHighlight}
-        className="px-3 py-1 text-sm rounded bg-yellow-200 hover:bg-yellow-300"
-        title="添加高亮"
-      >
+      <Button size="sm" variant="ghost" onClick={onAddHighlight} title="添加高亮">
         高亮
-      </button>
-      <button
-        onClick={onAddUnderline}
-        className="px-3 py-1 text-sm rounded bg-indigo-200 hover:bg-indigo-300"
-        title="添加划线"
-      >
+      </Button>
+      <Button size="sm" variant="ghost" onClick={onAddUnderline} title="添加划线">
         划线
-      </button>
-      <button
-        onClick={onAddNote}
-        className="px-3 py-1 text-sm rounded bg-green-200 hover:bg-green-300"
-        title="添加笔记"
-      >
+      </Button>
+      <Button size="sm" variant="ghost" onClick={onAddNote} title="添加笔记">
         笔记
-      </button>
+      </Button>
 
-      <div className="w-px h-6 bg-border mx-2" />
+      <div className="w-px h-5 bg-border mx-1" />
 
       <div className="flex items-center gap-1">
-        <span className="text-sm text-secondary mr-1">颜色:</span>
+        <span className="text-xs text-text-muted mr-1">颜色:</span>
         {colors.map(({ id, color, label }) => (
           <button
             key={id}
             onClick={() => onColorChange(color)}
-            className={`w-6 h-6 rounded border-2 ${
-              activeColor === color ? 'border-primary' : 'border-transparent'
+            className={`w-5 h-5 rounded-full border-2 transition-all duration-150 ${
+              activeColor === color ? 'border-primary scale-110' : 'border-transparent opacity-60 hover:opacity-100'
             }`}
             style={{ backgroundColor: color }}
             title={label}
@@ -66,13 +56,9 @@ export default function AnnotationToolbar({
 
       <div className="flex-1" />
 
-      <button
-        onClick={onClearAll}
-        className="px-3 py-1 text-sm rounded bg-surface-hover hover:bg-error hover:text-white"
-        title="清除所有批注"
-      >
+      <Button size="sm" variant="ghost" onClick={onClearAll} title="清除所有批注">
         清除全部
-      </button>
+      </Button>
     </div>
   );
 }

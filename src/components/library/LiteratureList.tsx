@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Literature } from '@/lib/types';
 import LiteratureCard from './LiteratureCard';
+import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
 
 interface LiteratureListProps {
   onSelect: (id: string) => void;
@@ -24,39 +26,39 @@ export default function LiteratureList({ onSelect }: LiteratureListProps) {
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-border">
-        <h1 className="text-2xl font-bold mb-4">文献库</h1>
+        <h1 className="text-lg font-bold text-text-primary mb-3">文献库</h1>
 
-        <div className="flex gap-4">
-          <input
-            type="text"
-            placeholder="搜索文献..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 px-4 py-2 bg-surface border border-border rounded-lg focus:outline-none focus:border-primary"
-          />
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <Input
+              type="text"
+              placeholder="搜索文献..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
 
-          <select
+          <Select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="px-4 py-2 bg-surface border border-border rounded-lg focus:outline-none focus:border-primary"
           >
             <option value="all">全部</option>
             <option value="Unread">未读</option>
             <option value="Reading">阅读中</option>
             <option value="Read">已读</option>
             <option value="ToRead">待读</option>
-          </select>
+          </Select>
         </div>
       </div>
 
       {/* List */}
       <div className="flex-1 overflow-auto p-4">
         {filtered.length === 0 ? (
-          <div className="text-center text-muted py-8">
+          <div className="text-center text-text-muted py-12 text-sm">
             暂无文献。点击"添加文献"开始。
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {filtered.map(lit => (
               <LiteratureCard
                 key={lit.id}
