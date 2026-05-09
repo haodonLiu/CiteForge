@@ -15,6 +15,12 @@ pub struct ThemeManager {
     current_theme_id: String,
 }
 
+impl Default for ThemeManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ThemeManager {
     pub fn new() -> Self {
         let mut manager = Self {

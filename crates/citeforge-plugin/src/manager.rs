@@ -2,6 +2,7 @@ use crate::types::*;
 use crate::PluginError;
 use std::path::PathBuf;
 
+#[allow(dead_code)]
 pub struct PluginManager {
     plugins_dir: PathBuf,
     loaded_plugins: Vec<PluginInfo>,
