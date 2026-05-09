@@ -1,5 +1,5 @@
-import { invoke } from '@tauri-apps/api/core';
 import type { AppTheme } from './store';
+import { isTauri, tauriInvoke } from './tauri';
 
 declare global {
   interface Window {
@@ -20,9 +20,8 @@ export const setTheme = (theme: AppTheme) => {
     window.monaco.editor.setTheme(monacoTheme);
   }
 
-  // Only invoke in Tauri environment
-  if (typeof window.__TAURI__ !== 'undefined') {
-    invoke('set_setting', { key: 'theme', value: theme }).catch(console.error);
+  if (isTauri) {
+    tauriInvoke('set_setting', { key: 'theme', value: theme }).catch(console.error);
   }
 };
 

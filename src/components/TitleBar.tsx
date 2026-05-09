@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { invoke } from '@tauri-apps/api/core';
 import { Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '@/lib/store';
+import { isTauri, tauriInvoke, tauriGetWindow } from '@/lib/tauri';
 
 type StatusMode = 'time' | 'task';
 
@@ -41,12 +40,11 @@ export function TitleBar() {
 
   // Fetch time status including silent threshold from backend
   useEffect(() => {
-    // Only run in Tauri environment
-    if (typeof window.__TAURI__ === 'undefined') return;
+    if (!isTauri) return;
 
     const fetchTimeStatus = async () => {
       try {
-        const response = await invoke<TimeStatusResponse>('get_time_status');
+        const response = await tauriInvoke<TimeStatusResponse>('get_time_status');
         setSilentThresholdMs(response.silent_threshold_minutes * 60 * 1000);
         setTodayMinutes(response.today_minutes);
       } catch (e) {
@@ -98,10 +96,9 @@ export function TitleBar() {
       silentModeRef.current = false;
       setStatus(prev => ({ ...prev, silent_mode: false }));
     }
-    // Only invoke in Tauri environment
-    if (typeof window.__TAURI__ === 'undefined') return;
+    if (!isTauri) return;
     try {
-      await invoke('record_activity');
+      await tauriInvoke('record_activity');
     } catch (e) {
       console.error('Failed to record activity:', e);
     }
@@ -123,12 +120,9 @@ export function TitleBar() {
   // Drag region setup
   useEffect(() => {
     const dragRegion = dragRegionRef.current;
-    if (!dragRegion) return;
+    if (!dragRegion || !isTauri) return;
 
-    // Only run in Tauri environment
-    if (typeof window.__TAURI__ === 'undefined') return;
-
-    const win = getCurrentWindow();
+    const win = tauriGetWindow();
     dragRegion.addEventListener('mousedown', (e) => {
       if (e.buttons === 1) {
         if (e.detail === 2) {
@@ -141,16 +135,15 @@ export function TitleBar() {
   }, []);
 
   // Window controls - only available in Tauri
-  const isTauri = typeof window.__TAURI__ !== 'undefined';
   const handleMinimize = useCallback(() => {
-    if (isTauri) getCurrentWindow().minimize();
-  }, [isTauri]);
+    if (isTauri) tauriGetWindow().minimize();
+  }, []);
   const handleMaximize = useCallback(() => {
-    if (isTauri) getCurrentWindow().toggleMaximize();
-  }, [isTauri]);
+    if (isTauri) tauriGetWindow().toggleMaximize();
+  }, []);
   const handleClose = useCallback(() => {
-    if (isTauri) getCurrentWindow().close();
-  }, [isTauri]);
+    if (isTauri) tauriGetWindow().close();
+  }, []);
 
   // Format time
   const formatTime = (date: Date) => {

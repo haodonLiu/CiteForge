@@ -1,16 +1,15 @@
 import { useEffect } from 'react';
-import { listen } from '@tauri-apps/api/event';
 import { useAppStore } from '@/lib/store';
+import { isTauri, tauriListen } from '@/lib/tauri';
 import type { TaskEvent } from '@/lib/types';
 
 export function useTaskEvents() {
   const updateTaskFromEvent = useAppStore((s) => s.updateTaskFromEvent);
 
   useEffect(() => {
-    // Only run in Tauri environment
-    if (typeof window.__TAURI__ === 'undefined') return;
+    if (!isTauri) return;
 
-    const unlisten = listen<TaskEvent>('task-event', (event) => {
+    const unlisten = tauriListen<TaskEvent>('task-event', (event) => {
       updateTaskFromEvent(event.payload);
     });
 
