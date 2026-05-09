@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 import { Link, useLocation } from 'react-router-dom';
+import { useAppStore } from '@/lib/store';
 
 type StatusMode = 'time' | 'task';
 
@@ -11,6 +12,11 @@ interface TitleBarStatus {
   silent_mode: boolean;
 }
 
+const defaultStatus: TitleBarStatus = {
+  mode: 'time',
+  silent_mode: false,
+};
+
 export function TitleBar() {
   const { pathname } = useLocation();
   const dragRegionRef = useRef<HTMLDivElement>(null);
@@ -18,8 +24,11 @@ export function TitleBar() {
   const silentModeRef = useRef<boolean>(false);
 
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [status, setStatus] = useState<TitleBarStatus>({ mode: 'time', silent_mode: false });
+  const [status, setStatus] = useState<TitleBarStatus>(defaultStatus);
   const [todayMinutes, setTodayMinutes] = useState(0);
+
+  const currentTaskId = useAppStore((s) => s.currentTaskId);
+  const tasks = useAppStore((s) => s.tasks);
 
   const SILENT_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -30,6 +39,20 @@ export function TitleBar() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Sync task status from store
+  useEffect(() => {
+    if (currentTaskId && tasks[currentTaskId]) {
+      const task = tasks[currentTaskId];
+      setStatus({
+        mode: 'task',
+        task_name: task.topic || '处理中...',
+        silent_mode: false,
+      });
+    } else {
+      setStatus({ mode: 'time', silent_mode: false });
+    }
+  }, [currentTaskId, tasks]);
 
   // Check silent mode
   useEffect(() => {

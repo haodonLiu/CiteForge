@@ -27,6 +27,7 @@ interface AppStore {
   updateTaskFromEvent: (event: TaskEvent) => void;
   setCurrentTask: (id: string | null) => void;
   clearTask: (id: string) => void;
+  getCurrentTask: () => Task | null;
 }
 
 const storedTheme = getStoredTheme();
@@ -69,15 +70,31 @@ export const useAppStore = create<AppStore>((set) => ({
   updateTaskFromEvent: (event) => {
     const taskId = event.payload.task_id;
     set((state) => {
-      const task = state.tasks[taskId];
+      let task = state.tasks[taskId];
+
+      // If task doesn't exist and this is TaskStarted, create it
+      if (!task && event.type === 'TaskStarted') {
+        task = {
+          id: taskId,
+          topic: '',
+          status: 'Pending',
+          progress: 0,
+        };
+      }
+
       if (!task) return state;
 
       let updates: Partial<Task> = {};
       switch (event.type) {
         case 'TaskStarted':
+          // TaskActor already emitted with topic if we want to use it
+          // For now, use a placeholder or expect event payload to include topic
           updates.status = 'Researching';
           updates.progress = 0.25;
-          break;
+          return {
+            tasks: { ...state.tasks, [taskId]: { ...task, ...updates } },
+            currentTaskId: state.currentTaskId || taskId,  // Set if not already set
+          };
         case 'AgentCompleted':
           updates.status = event.payload.agent === 'Researcher' ? 'Analyzing'
             : event.payload.agent === 'Analyst' ? 'Writing'
@@ -89,18 +106,27 @@ export const useAppStore = create<AppStore>((set) => ({
         case 'TaskCompleted':
           updates.status = 'Completed';
           updates.progress = 1.0;
-          break;
+          return {
+            tasks: { ...state.tasks, [taskId]: { ...task, ...updates } },
+            currentTaskId: null,  // Clear current task on completion
+          };
         case 'TaskFailed':
           updates.status = 'Failed';
           updates.error = event.payload.error;
+          return {
+            tasks: { ...state.tasks, [taskId]: { ...task, ...updates } },
+            currentTaskId: null,
+          };
+        case 'LiteraturePoolUpdated':
+          updates.lastAction = `文献库更新: ${event.payload.count} 篇`;
+          break;
+        case 'DraftGenerated':
+          updates.lastAction = '草稿已生成';
           break;
       }
 
       return {
-        tasks: {
-          ...state.tasks,
-          [taskId]: { ...task, ...updates },
-        },
+        tasks: { ...state.tasks, [taskId]: { ...task, ...updates } },
       };
     });
   },
@@ -113,4 +139,9 @@ export const useAppStore = create<AppStore>((set) => ({
       const { [id]: _, ...rest } = state.tasks;
       return { tasks: rest };
     }),
+
+  getCurrentTask: () => {
+    // This needs to be a selector-style access, so we return a getter
+    return null; // Placeholder - actual usage via selector
+  },
 }));
