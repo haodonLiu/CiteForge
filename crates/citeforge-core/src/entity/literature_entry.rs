@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LiteratureEntry {
     pub id: String,
-    pub index: i32,
+    pub sort_order: i32,
     pub title: String,
     pub authors: Vec<String>,
     pub abstract_text: Option<String>,

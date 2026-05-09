@@ -28,23 +28,3 @@ impl EventOutbox {
         self.bus.subscribe()
     }
 }
-
-pub async fn outbox_relay(
-    db: Arc<Database>,
-    mut rx: broadcast::Receiver<TaskEvent>,
-) {
-    loop {
-        match rx.recv().await {
-            Ok(event) => {
-                tracing::debug!("event relayed: {:?}", event);
-            }
-            Err(broadcast::error::RecvError::Lagged(n)) => {
-                tracing::warn!("outbox relay lagged {} events", n);
-            }
-            Err(broadcast::error::RecvError::Closed) => {
-                tracing::error!("broadcast channel closed");
-                break;
-            }
-        }
-    }
-}

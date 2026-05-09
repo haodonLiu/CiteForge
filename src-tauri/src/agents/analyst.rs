@@ -12,7 +12,7 @@ pub struct AnalystInput {
     pub literature_entries: Vec<LiteratureEntry>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalystOutput {
     pub themes: Vec<Theme>,
     pub trends: Vec<String>,

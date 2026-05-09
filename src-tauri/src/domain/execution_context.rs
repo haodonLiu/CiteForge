@@ -1,6 +1,7 @@
 use std::time::{Duration, Instant};
 use tokio_util::sync::CancellationToken;
 
+#[derive(Clone)]
 pub struct TaskExecutionContext {
     pub cancel_token: CancellationToken,
     pub deadline: Instant,

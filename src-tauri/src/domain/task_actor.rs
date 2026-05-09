@@ -1,7 +1,10 @@
 use std::sync::Arc;
-use tokio::sync::broadcast;
+use std::panic::AssertUnwindSafe;
+use futures::FutureExt;
+use tokio::sync::{broadcast, mpsc};
 use citeforge_core::entity::{Task, TaskState};
-use citeforge_core::event::{TaskEvent, AgentType};
+use citeforge_core::event::{TaskEvent, AgentType, AgentEvent, EventType, EventSource, HumanDecision};
+use citeforge_workspace::EventLog;
 use crate::domain::execution_context::TaskExecutionContext;
 use crate::domain::agent::Agent;
 use crate::workspace::Database;
@@ -15,6 +18,8 @@ pub struct TaskActor {
     container: Arc<AppContainer>,
     db: Arc<Database>,
     event_sender: broadcast::Sender<TaskEvent>,
+    agent_event_sender: broadcast::Sender<AgentEvent>,
+    event_log: Arc<EventLog>,
 }
 
 fn agent_type_for_state(state: &TaskState) -> Option<AgentType> {
@@ -22,6 +27,7 @@ fn agent_type_for_state(state: &TaskState) -> Option<AgentType> {
         TaskState::Researching => Some(AgentType::Researcher),
         TaskState::Analyzing => Some(AgentType::Analyst),
         TaskState::Writing => Some(AgentType::Writer),
+        TaskState::AnalyzingAndWriting => None,
         _ => None,
     }
 }
@@ -33,15 +39,51 @@ impl TaskActor {
         db: Arc<Database>,
         topic: String,
         pdf_paths: Vec<String>,
-    ) -> broadcast::Receiver<TaskEvent> {
+        workspace_root: &std::path::Path,
+    ) -> (broadcast::Receiver<TaskEvent>, broadcast::Receiver<AgentEvent>) {
         let (tx, rx) = broadcast::channel(1000);
-        let mut actor = Self { task_id, topic, pdf_paths, container, db, event_sender: tx };
+        let (agent_tx, agent_rx) = broadcast::channel(10000);
+        let event_log = Arc::new(EventLog::new(workspace_root, &task_id));
 
-        tokio::spawn(async move {
+        let mut actor = Self {
+            task_id,
+            topic,
+            pdf_paths,
+            container,
+            db,
+            event_sender: tx,
+            agent_event_sender: agent_tx,
+            event_log,
+        };
+
+        let task_id_clone = actor.task_id.clone();
+        tokio::spawn(AssertUnwindSafe(async move {
             actor.run().await;
-        });
+        }).catch_unwind().then(move |result| async move {
+            if let Err(e) = result {
+                let msg = if let Some(s) = e.downcast_ref::<&str>() {
+                    s.to_string()
+                } else if let Some(s) = e.downcast_ref::<String>() {
+                    s.clone()
+                } else {
+                    "unknown panic".to_string()
+                };
+                tracing::error!("task {} panicked: {}", task_id_clone, msg);
+                counter!("citeforge.task.panic", 1, "task_id" => task_id_clone);
+            }
+        }));
 
-        rx
+        (rx, agent_rx)
+    }
+
+    async fn emit_agent_event(&self, source: EventSource, event_type: EventType, payload: serde_json::Value, requires_action: bool) {
+        let event = AgentEvent::new(source, event_type, payload, requires_action);
+        if let Err(e) = self.event_log.append(&event).await {
+            tracing::error!("failed to log agent event: {}", e);
+        }
+        if let Err(e) = self.agent_event_sender.send(event) {
+            tracing::warn!("failed to broadcast agent event: {}", e);
+        }
     }
 
     async fn run(&mut self) {
@@ -82,12 +124,25 @@ impl TaskActor {
         task: &mut Task,
     ) -> Result<(), String> {
         use crate::agents::researcher::ResearcherInput;
-        use crate::agents::analyst::AnalystInput;
+        use crate::agents::analyst::{AnalystInput, AnalystOutput};
         use crate::agents::writer::WriterInput;
 
         // Phase 1: Researching
         task.transition(TaskState::Researching).map_err(|e| e.to_string())?;
         self.save_and_publish(task).await.map_err(|e| e.to_string())?;
+        self.emit_agent_event(
+            EventSource::Orchestrator,
+            EventType::StateTransition,
+            serde_json::json!({ "from": "Pending", "to": "Researching" }),
+            false,
+        ).await;
+
+        self.emit_agent_event(
+            EventSource::Researcher,
+            EventType::ResearchStarted,
+            serde_json::json!({ "topic": self.topic }),
+            false,
+        ).await;
 
         let researcher = crate::agents::ResearcherAgent::new(Arc::clone(&self.container));
         let researcher_output = researcher.run(ctx, ResearcherInput {
@@ -97,30 +152,98 @@ impl TaskActor {
         }).await.map_err(|e| e.to_string())?;
 
         let lit_entries = researcher_output.literature_entries.clone();
+        self.emit_agent_event(
+            EventSource::Researcher,
+            EventType::ResearchCompleted,
+            serde_json::json!({ "new_count": lit_entries.len(), "total_count": lit_entries.len() }),
+            false,
+        ).await;
 
-        // Phase 2: Analyzing
-        task.transition(TaskState::Analyzing).map_err(|e| e.to_string())?;
+        // Phase 2: Analyzing + Writing (concurrent)
+        task.transition(TaskState::AnalyzingAndWriting).map_err(|e| e.to_string())?;
         self.save_and_publish(task).await.map_err(|e| e.to_string())?;
+        self.emit_agent_event(
+            EventSource::Orchestrator,
+            EventType::StateTransition,
+            serde_json::json!({ "from": "Researching", "to": "AnalyzingAndWriting" }),
+            false,
+        ).await;
 
-        let analyst = crate::agents::AnalystAgent::new(Arc::clone(&self.container));
-        let analyst_output = analyst.run(ctx, AnalystInput {
-            task_id: self.task_id.clone(),
-            literature_entries: lit_entries.clone(),
-        }).await.map_err(|e| e.to_string())?;
+        self.emit_agent_event(
+            EventSource::Analyst,
+            EventType::AnalysisStarted,
+            serde_json::json!({ "segment": null }),
+            false,
+        ).await;
 
-        // Phase 3: Writing
-        task.transition(TaskState::Writing).map_err(|e| e.to_string())?;
-        self.save_and_publish(task).await.map_err(|e| e.to_string())?;
+        self.emit_agent_event(
+            EventSource::Writer,
+            EventType::WritingStarted,
+            serde_json::json!({ "segment": "full" }),
+            false,
+        ).await;
 
-        let writer = crate::agents::WriterAgent::new(Arc::clone(&self.container));
-        let _writer_output = writer.run(ctx, WriterInput {
-            task_id: self.task_id.clone(),
-            topic: self.topic.clone(),
-            literature_entries: lit_entries,
-            themes: analyst_output.themes,
-            trends: analyst_output.trends,
-            gaps: analyst_output.gaps,
-        }).await.map_err(|e| e.to_string())?;
+        // Channel for Analyst → Writer communication
+        let (tx, mut rx) = mpsc::channel::<AnalystOutput>(1);
+
+        // Clone context for concurrent tasks
+        let analyst_ctx = ctx.clone();
+        let writer_ctx = ctx.clone();
+
+        // Spawn Analyst (sends output via channel)
+        let analyst_container = Arc::clone(&self.container);
+        let analyst_task_id = self.task_id.clone();
+        let analyst_entries = lit_entries.clone();
+        let analyst_handle = tokio::spawn(async move {
+            let analyst = crate::agents::AnalystAgent::new(analyst_container);
+            let output = analyst.run(&analyst_ctx, AnalystInput {
+                task_id: analyst_task_id,
+                literature_entries: analyst_entries,
+            }).await.map_err(|e| e.to_string())?;
+            let _ = tx.send(output.clone()).await;
+            Ok::<AnalystOutput, String>(output)
+        });
+
+        // Spawn Writer (receives themes via channel)
+        let writer_container = Arc::clone(&self.container);
+        let writer_task_id = self.task_id.clone();
+        let writer_topic = self.topic.clone();
+        let writer_entries = lit_entries;
+        let writer_handle = tokio::spawn(async move {
+            // Wait for analyst output
+            let analyst_output = rx.recv().await
+                .ok_or_else(|| "analyst channel closed without output".to_string())?;
+
+            let writer = crate::agents::WriterAgent::new(writer_container);
+            writer.run(&writer_ctx, WriterInput {
+                task_id: writer_task_id,
+                topic: writer_topic,
+                literature_entries: writer_entries,
+                themes: analyst_output.themes,
+                trends: analyst_output.trends,
+                gaps: analyst_output.gaps,
+            }).await.map_err(|e| e.to_string())?;
+            Ok::<(), String>(())
+        });
+
+        // Wait for both to complete
+        let (analyst_result, writer_result) = tokio::join!(analyst_handle, writer_handle);
+
+        let analyst_output = analyst_result
+            .map_err(|e| format!("analyst task panicked: {}", e))?
+            .map_err(|e| format!("analyst failed: {}", e))?;
+
+        writer_result
+            .map_err(|e| format!("writer task panicked: {}", e))?
+            .map_err(|e| format!("writer failed: {}", e))?;
+
+        let theme_names: Vec<String> = analyst_output.themes.iter().map(|t| t.name.clone()).collect();
+        self.emit_agent_event(
+            EventSource::Analyst,
+            EventType::AnalysisCompleted,
+            serde_json::json!({ "themes": theme_names, "narrative_flow": [] }),
+            false,
+        ).await;
 
         Ok(())
     }

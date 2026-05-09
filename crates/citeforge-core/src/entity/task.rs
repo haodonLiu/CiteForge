@@ -16,6 +16,7 @@ pub enum TaskState {
     Researching,
     Analyzing,
     Writing,
+    AnalyzingAndWriting,
     Completed,
     Failed { error: String, retry_count: u8 },
 }
@@ -65,8 +66,10 @@ fn validate_transition(from: &TaskState, to: &TaskState) -> Result<(), InvalidTr
     match (from, to) {
         (TaskState::Pending, TaskState::Researching) => Ok(()),
         (TaskState::Researching, TaskState::Analyzing) => Ok(()),
+        (TaskState::Researching, TaskState::AnalyzingAndWriting) => Ok(()),
         (TaskState::Analyzing, TaskState::Writing) => Ok(()),
         (TaskState::Writing, TaskState::Completed) => Ok(()),
+        (TaskState::AnalyzingAndWriting, TaskState::Completed) => Ok(()),
         (s, TaskState::Failed { .. }) if !is_failed(s) => Ok(()),
         _ => Err(InvalidTransition),
     }
@@ -89,6 +92,14 @@ mod tests {
         assert!(task.transition(TaskState::Researching).is_ok());
         assert!(task.transition(TaskState::Analyzing).is_ok());
         assert!(task.transition(TaskState::Writing).is_ok());
+        assert!(task.transition(TaskState::Completed).is_ok());
+    }
+
+    #[test]
+    fn test_valid_concurrent_pipeline() {
+        let mut task = Task::new("t1".into(), "topic".into());
+        assert!(task.transition(TaskState::Researching).is_ok());
+        assert!(task.transition(TaskState::AnalyzingAndWriting).is_ok());
         assert!(task.transition(TaskState::Completed).is_ok());
     }
 

@@ -10,7 +10,7 @@ pub struct TaskDto {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LiteratureEntryDto {
     pub id: String,
-    pub index: i32,
+    pub sort_order: i32,
     pub title: String,
     pub authors: Vec<String>,
     #[serde(rename = "abstractText")]

@@ -2,7 +2,6 @@ use rusqlite::{Connection, params};
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use thiserror::Error;
 use crate::error::WorkspaceError;
 use citeforge_core::entity::{Task, TaskState, LiteratureEntry};
 use citeforge_core::event::TaskEvent;
@@ -52,7 +51,7 @@ impl Database {
             params![
                 task.id,
                 task.topic,
-                serde_json::to_string(&task.state).unwrap(),
+                serde_json::to_string(&task.state).map_err(WorkspaceError::serde)?,
                 task.created_at.to_rfc3339(),
                 task.updated_at.to_rfc3339(),
             ],
@@ -66,24 +65,27 @@ impl Database {
             "SELECT id, topic, state, created_at, updated_at FROM tasks WHERE id = ?1"
         )?;
 
-        let task = stmt.query_row(params![id], |row| {
-            let state_json: String = row.get(2)?;
-            let state: TaskState = serde_json::from_str(&state_json).unwrap();
-            Ok(Task {
-                id: row.get(0)?,
-                topic: row.get(1)?,
-                state,
-                created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(3)?).unwrap().with_timezone(&chrono::Utc),
-                updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(4)?).unwrap().with_timezone(&chrono::Utc),
-            })
-        }).map_err(|_| WorkspaceError::TaskNotFound(id.to_string()))?;
+        let (id, topic, state_json, created_at_str, updated_at_str): (String, String, String, String, String) =
+            stmt.query_row(params![id], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+            }).map_err(|_| WorkspaceError::TaskNotFound(id.to_string()))?;
 
-        Ok(task)
+        let state: TaskState = serde_json::from_str(&state_json)
+            .map_err(WorkspaceError::serde)?;
+        let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
+            .map_err(WorkspaceError::chrono)?
+            .with_timezone(&chrono::Utc);
+        let updated_at = chrono::DateTime::parse_from_rfc3339(&updated_at_str)
+            .map_err(WorkspaceError::chrono)?
+            .with_timezone(&chrono::Utc);
+
+        Ok(Task { id, topic, state, created_at, updated_at })
     }
 
     pub async fn append_event(&self, task_id: &str, event: &TaskEvent) -> Result<(), WorkspaceError> {
         let conn = self.conn.lock().await;
-        let payload = serde_json::to_string(event).unwrap();
+        let payload = serde_json::to_string(event)
+            .map_err(WorkspaceError::serde)?;
         let event_type = format!("{:?}", event);
         conn.execute(
             "INSERT INTO task_events (task_id, event_type, payload, created_at) VALUES (?1, ?2, ?3, ?4)",
@@ -103,10 +105,13 @@ impl Database {
             "SELECT payload FROM task_events WHERE task_id = ?1 ORDER BY created_at ASC"
         )?;
 
-        let events = stmt.query_map(params![task_id], |row| {
-            let payload: String = row.get(0)?;
-            Ok(serde_json::from_str(&payload).unwrap())
+        let payloads: Vec<String> = stmt.query_map(params![task_id], |row| {
+            row.get(0)
         })?.collect::<Result<Vec<_>, _>>()?;
+
+        let events = payloads.iter().map(|p| {
+            serde_json::from_str(p).map_err(WorkspaceError::serde)
+        }).collect::<Result<Vec<_>, _>>()?;
 
         Ok(events)
     }
@@ -114,24 +119,43 @@ impl Database {
     pub async fn export_json(&self, task_id: &str) -> Result<String, WorkspaceError> {
         let conn = self.conn.lock().await;
         let mut stmt = conn.prepare(
-            "SELECT id, index, title, authors, abstract_text, doi, year, venue, citation_count, verified FROM literature_entries WHERE task_id = ?1"
+            "SELECT id, sort_order, title, authors, abstract_text, doi, year, venue, citation_count, verified FROM literature_entries WHERE task_id = ?1"
         )?;
 
-        let entries = stmt.query_map(params![task_id], |row| {
-            Ok(LiteratureEntry {
-                id: row.get(0)?,
-                index: row.get(1)?,
-                title: row.get(2)?,
-                authors: serde_json::from_str(&row.get::<_, String>(3)?).unwrap(),
-                abstract_text: row.get(4)?,
-                doi: row.get(5)?,
-                year: row.get(6)?,
-                venue: row.get(7)?,
-                citation_count: row.get(8)?,
-                verified: row.get::<_, i32>(9)? != 0,
-            })
-        })?.collect::<Result<Vec<_>, _>>()?;
+        let rows: Vec<(String, i32, String, String, Option<String>, Option<String>, Option<i32>, Option<String>, Option<i32>, bool)> =
+            stmt.query_map(params![task_id], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
+                    row.get(8)?,
+                    row.get::<_, i32>(9)? != 0,
+                ))
+            })?.collect::<Result<Vec<_>, _>>()?;
 
-        Ok(serde_json::to_string_pretty(&entries).unwrap())
+        let entries = rows.into_iter().map(|r| {
+            let authors: Vec<String> = serde_json::from_str(&r.3)
+                .map_err(WorkspaceError::serde)?;
+            Ok(LiteratureEntry {
+                id: r.0,
+                sort_order: r.1,
+                title: r.2,
+                authors,
+                abstract_text: r.4,
+                doi: r.5,
+                year: r.6,
+                venue: r.7,
+                citation_count: r.8,
+                verified: r.9,
+            })
+        }).collect::<Result<Vec<_>, WorkspaceError>>()?;
+
+        Ok(serde_json::to_string_pretty(&entries)
+            .map_err(WorkspaceError::serde)?)
     }
 }

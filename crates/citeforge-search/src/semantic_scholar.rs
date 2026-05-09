@@ -46,10 +46,21 @@ impl SearchEngine for SemanticScholarClient {
         let result: serde_json::Value = resp.json().await
             .map_err(|e| SearchError::Network(e.to_string()))?;
 
+        if let Some(msg) = result["error"].as_str() {
+            tracing::warn!("Semantic Scholar API error: {}", msg);
+        }
+
         let entries: Vec<LiteratureEntry> = result["data"]
             .as_array()
             .unwrap_or(&vec![])
             .iter()
+            .filter_map(|paper| {
+                let paper_id = paper["paperId"].as_str()?;
+                if paper_id.is_empty() {
+                    return None;
+                }
+                Some(paper)
+            })
             .enumerate()
             .map(|(idx, paper)| {
                 let authors: Vec<String> = paper["authors"]
@@ -65,8 +76,8 @@ impl SearchEngine for SemanticScholarClient {
                 let doi = paper["externalIds"]["DOI"].as_str().map(|s| s.to_string());
 
                 LiteratureEntry {
-                    id: paper["paperId"].as_str().unwrap_or("").to_string(),
-                    index: idx as i32 + 1,
+                    id: paper["paperId"].as_str().unwrap().to_string(),
+                    sort_order: idx as i32 + 1,
                     title: paper["title"].as_str().unwrap_or("").to_string(),
                     authors,
                     abstract_text: paper["abstract"].as_str().map(|s| s.to_string()),
