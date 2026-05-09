@@ -18,6 +18,13 @@ pub struct TaskResponse {
     pub status: String,
 }
 
+#[derive(Debug, Serialize)]
+pub struct DraftStats {
+    pub total_words: u32,
+    pub total_chars: u32,
+    pub last_modified: Option<u64>,
+}
+
 fn validate_pdf_paths(paths: &[String], workspace_root: &Path) -> Result<(), String> {
     for path_str in paths {
         let path = Path::new(path_str);
@@ -81,6 +88,30 @@ pub async fn get_task_status(
     Ok(TaskResponse {
         task_id: task.id,
         status: format!("{:?}", task.state),
+    })
+}
+
+#[tauri::command]
+pub async fn get_draft_stats(
+    workspace_id: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<DraftStats, String> {
+    let draft_path = container.config.workspace.root.join(&workspace_id).join("draft.md");
+
+    let content = tokio::fs::read_to_string(&draft_path).await.unwrap_or_default();
+    let word_count = content.split_whitespace().count() as u32;
+    let char_count = content.chars().count() as u32;
+
+    let last_modified = draft_path
+        .metadata()
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs());
+
+    Ok(DraftStats {
+        total_words: word_count,
+        total_chars: char_count,
+        last_modified,
     })
 }
 

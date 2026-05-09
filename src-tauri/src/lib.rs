@@ -11,4 +11,4 @@ pub mod workspace {
 
 pub use application::AppContainer;
 pub use config::AppConfig;
-pub use presentation::commands;
+pub use presentation::commands::{run_task, resume_task, get_task_status, get_draft_stats};
