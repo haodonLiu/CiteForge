@@ -77,7 +77,7 @@ impl DocumentParser for PdfParser {
 }
 
 impl PdfParser {
-    fn extract_metadata(&self, doc: &Document) -> Option<DocumentMetadata> {
+    pub fn extract_metadata(&self, doc: &Document) -> Option<DocumentMetadata> {
         let title = doc
             .trailer
             .get(b"Title")

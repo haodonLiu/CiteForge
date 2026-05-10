@@ -1,4 +1,5 @@
 use crate::anthropic::AnthropicProvider;
+use crate::modelscope::ModelScopeProvider;
 use crate::ollama::OllamaProvider;
 use crate::openai::OpenAIProvider;
 use anyhow::Result;
@@ -32,6 +33,7 @@ impl LlmRegistry {
 
         reg.register_embed("openai", OpenAIProvider::embed_factory());
         reg.register_embed("ollama", OllamaProvider::embed_factory());
+        reg.register_embed("modelscope", ModelScopeProvider::factory());
 
         reg
     }

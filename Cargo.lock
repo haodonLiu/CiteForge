@@ -488,6 +488,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "backoff",
+ "chrono",
  "citeforge-chroma",
  "citeforge-core",
  "citeforge-llm",

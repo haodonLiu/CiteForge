@@ -53,6 +53,7 @@ pub enum LlmProvider {
     OpenAI,
     Anthropic,
     Ollama,
+    ModelScope,
 }
 
 impl Default for AppConfig {
