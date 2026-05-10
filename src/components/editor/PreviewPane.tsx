@@ -1,8 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { marked } from 'marked';
-import katex from 'katex';
 import DOMPurify from 'dompurify';
-import 'katex/dist/katex.min.css';
+import { initLatexRenderer, renderLatexToDataUrl, splitByLatexExpressions } from '@/lib/latex-renderer';
 
 interface PreviewPaneProps {
   content: string;
@@ -10,55 +9,103 @@ interface PreviewPaneProps {
 
 export default function PreviewPane({ content }: PreviewPaneProps) {
   const previewRef = useRef<HTMLDivElement>(null);
+  const [renderedParts, setRenderedParts] = useState<Array<{
+    type: 'text' | 'latex';
+    content: string;
+    html?: string;
+    dataUrl?: string;
+    displayMode: boolean;
+  }>>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!previewRef.current) return;
+    let cancelled = false;
 
-    // Parse markdown
-    let html = marked.parse(content) as string;
+    const render = async () => {
+      if (!previewRef.current || cancelled) return;
 
-    // Render LaTeX (simplified: find $...$ and $$...$$)
-    html = html.replace(/\$\$(.*?)\$\$/g, (_, tex) => {
       try {
-        return katex.renderToString(tex, { displayMode: true, throwOnError: false });
-      } catch {
-        return `<span style="color: var(--color-error)">LaTeX Error: ${tex}</span>`;
-      }
-    });
+        await initLatexRenderer();
 
-    html = html.replace(/\$(.*?)\$/g, (_, tex) => {
-      try {
-        return katex.renderToString(tex, { displayMode: false, throwOnError: false });
-      } catch {
-        return `<span style="color: var(--color-error)">${tex}</span>`;
-      }
-    });
+        if (cancelled) return;
 
-    // Sanitize HTML to prevent XSS
-    const clean = DOMPurify.sanitize(html);
-    previewRef.current.innerHTML = clean;
+        // Split content by LaTeX expressions
+        const parts = splitByLatexExpressions(content);
+
+        // Render each part
+        const rendered = await Promise.all(
+          parts.map(async (part) => {
+            if (part.type === 'text') {
+              // Parse markdown for text parts
+              const html = DOMPurify.sanitize(await marked.parse(part.content) as string);
+              return { ...part, html };
+            } else {
+              // Render LaTeX to image
+              const dataUrl = await renderLatexToDataUrl(part.content, {
+                fontSize: part.displayMode ? 24 : 18,
+                color: 'currentColor',
+                backgroundColor: 'transparent',
+                displayMode: part.displayMode,
+              });
+              return { ...part, dataUrl };
+            }
+          })
+        );
+
+        if (cancelled) return;
+
+        setRenderedParts(rendered);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Failed to render preview:', error);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    render();
+
+    return () => {
+      cancelled = true;
+    };
   }, [content]);
 
   return (
     <div
       ref={previewRef}
-      className="p-6 max-w-none text-text-primary
-        [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-4 [&_h1]:mt-6
-        [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mb-3 [&_h2]:mt-5
-        [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mb-2 [&_h3]:mt-4
-        [&_p]:mb-3 [&_p]:leading-relaxed
-        [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-3
-        [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-3
-        [&_li]:mb-1
-        [&_code]:bg-surface [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm [&_code]:font-mono
-        [&_pre]:bg-surface [&_pre]:p-4 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:mb-4
-        [&_pre_code]:bg-transparent [&_pre_code]:p-0
-        [&_blockquote]:border-l-4 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-text-secondary [&_blockquote]:mb-3
-        [&_a]:text-primary [&_a]:underline [&_a]:hover:opacity-80
-        [&_strong]:font-semibold
-        [&_table]:w-full [&_table]:border-collapse [&_table]:mb-4
-        [&_th]:border [&_th]:border-border [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:bg-surface
-        [&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2"
-    />
+      className="p-6 max-w-none text-text-primary"
+      data-loading={isLoading}
+    >
+      {isLoading ? (
+        <div className="text-text-muted">渲染中...</div>
+      ) : (
+        <>
+          {renderedParts.map((part, index) => {
+            if (part.type === 'text' && part.html) {
+              return (
+                <div
+                  key={index}
+                  className="prose-content"
+                  dangerouslySetInnerHTML={{ __html: part.html }}
+                />
+              );
+            } else if (part.type === 'latex' && part.dataUrl) {
+              const className = part.displayMode ? 'latex-display' : 'latex-inline';
+              return (
+                <span key={index} className={`${className} inline-block align-middle`}>
+                  <img
+                    src={part.dataUrl}
+                    alt={part.content}
+                    className="max-w-full h-auto"
+                  />
+                </span>
+              );
+            }
+            return null;
+          })}
+        </>
+      )}
+    </div>
   );
 }

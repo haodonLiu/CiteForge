@@ -1,5 +1,6 @@
+import { memo } from 'react';
 import { FileText, Globe } from 'lucide-react';
-import { Literature } from '@/lib/types';
+import type { Literature } from '@/lib/types';
 import Badge from '@/components/ui/Badge';
 
 interface LiteratureCardProps {
@@ -15,8 +16,8 @@ const statusVariant: Record<string, 'default' | 'primary' | 'success' | 'warning
   Archived: 'default',
 };
 
-export default function LiteratureCard({ literature, onSelect }: LiteratureCardProps) {
-  const isPdf = literature.source === 'pdf' || literature.file_path;
+const LiteratureCard = memo(function LiteratureCard({ literature, onSelect }: LiteratureCardProps) {
+  const isPdf = literature.source === 'pdf' || literature.filePath;
 
   return (
     <div
@@ -33,7 +34,7 @@ export default function LiteratureCard({ literature, onSelect }: LiteratureCardP
           {literature.authors.map((a) => a.name).join(', ')}
           {literature.year && ` · ${literature.year}`}
           {literature.venue && ` · ${literature.venue}`}
-          {literature.citation_count && ` · 被引 ${literature.citation_count} 次`}
+          {literature.citationCount && ` · 被引 ${literature.citationCount} 次`}
         </p>
         <div className="flex gap-1.5 mt-2">
           {literature.tags.slice(0, 3).map((tag) => (
@@ -47,20 +48,22 @@ export default function LiteratureCard({ literature, onSelect }: LiteratureCardP
       <div className="flex flex-col items-end gap-1 shrink-0">
         <div
           className={`w-2 h-2 rounded-full ${
-            literature.read_status === 'Read'
+            literature.readStatus === 'Read'
               ? 'bg-success'
-              : literature.read_status === 'Reading'
+              : literature.readStatus === 'Reading'
               ? 'bg-warning'
               : 'bg-text-muted'
           }`}
-          title={literature.read_status}
+          title={literature.readStatus}
         />
-        {literature.read_progress > 0 && literature.read_progress < 1 && (
+        {literature.readProgress > 0 && literature.readProgress < 1 && (
           <span className="text-[10px] text-text-muted">
-            {Math.round(literature.read_progress * 100)}%
+            {Math.round(literature.readProgress * 100)}%
           </span>
         )}
       </div>
     </div>
   );
-}
+});
+
+export default LiteratureCard;

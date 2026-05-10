@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react';
 import { invoke } from '@/lib/tauri';
 import type { TextIndexEntry, OutlineEntry } from '@/lib/types';
+import type { ApiTextIndexEntry, ApiOutlineEntry } from '@/lib/types/api';
+import { mapApiTextIndexEntry, mapApiOutlineEntry } from '@/lib/types/domain';
 
 export function usePdfIndex() {
   const [textIndex, setTextIndex] = useState<TextIndexEntry[]>([]);
@@ -12,11 +14,11 @@ export function usePdfIndex() {
     try {
       setLoading(true);
       const [index, outlineData] = await Promise.all([
-        invoke<TextIndexEntry[]>('generate_text_index', { filePath }),
-        invoke<OutlineEntry[]>('generate_outline', { filePath }),
+        invoke<ApiTextIndexEntry[]>('generate_text_index', { filePath }),
+        invoke<ApiOutlineEntry[]>('generate_outline', { filePath }),
       ]);
-      setTextIndex(index);
-      setOutline(outlineData);
+      setTextIndex((index || []).map(mapApiTextIndexEntry));
+      setOutline((outlineData || []).map(mapApiOutlineEntry));
     } catch (e) {
       console.error('failed to generate PDF index:', e);
     } finally {

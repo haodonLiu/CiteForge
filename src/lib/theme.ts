@@ -1,5 +1,5 @@
 import type { AppTheme } from './store';
-import type { FontSettings } from './types';
+import type { FontSettings } from './types/domain';
 import { isTauri, invoke } from './tauri';
 
 declare global {
@@ -75,7 +75,20 @@ export const fontPresets: FontPreset[] = [
   },
 ];
 
+// Snake_case for localStorage/API compatibility
+interface StoredFontSettings {
+  font_family: string;
+  font_size: number;
+  line_height: number;
+}
+
 export const defaultFontSettings: FontSettings = {
+  fontFamily: 'system',
+  fontSize: 14,
+  lineHeight: 1.75,
+};
+
+const defaultStoredFontSettings: StoredFontSettings = {
   font_family: 'system',
   font_size: 14,
   line_height: 1.75,
@@ -83,19 +96,24 @@ export const defaultFontSettings: FontSettings = {
 
 export const applyFontSettings = (settings: FontSettings) => {
   const root = document.documentElement;
-  const preset = fontPresets.find((p) => p.value === settings.font_family);
-  const fontStack = preset?.stack || settings.font_family;
+  const preset = fontPresets.find((p) => p.value === settings.fontFamily);
+  const fontStack = preset?.stack || settings.fontFamily;
 
   root.style.setProperty('--font-sans', fontStack);
   root.style.setProperty('--font-serif', fontStack);
-  root.style.setProperty('--font-size-base', `${settings.font_size}px`);
-  root.style.setProperty('--line-height', `${settings.line_height}`);
+  root.style.setProperty('--font-size-base', `${settings.fontSize}px`);
+  root.style.setProperty('--line-height', `${settings.lineHeight}`);
 };
 
 export const persistFontSettings = (settings: FontSettings) => {
-  localStorage.setItem('citeforge-font', JSON.stringify(settings));
+  const stored: StoredFontSettings = {
+    font_family: settings.fontFamily,
+    font_size: settings.fontSize,
+    line_height: settings.lineHeight,
+  };
+  localStorage.setItem('citeforge-font', JSON.stringify(stored));
   if (isTauri) {
-    invoke('set_setting', { key: 'font', value: JSON.stringify(settings) }).catch(console.error);
+    invoke('set_setting', { key: 'font', value: JSON.stringify(stored) }).catch(console.error);
   }
 };
 
@@ -103,11 +121,11 @@ export const getStoredFontSettings = (): FontSettings => {
   try {
     const stored = localStorage.getItem('citeforge-font');
     if (stored) {
-      const parsed = JSON.parse(stored);
+      const parsed: StoredFontSettings = JSON.parse(stored);
       return {
-        font_family: parsed.font_family ?? defaultFontSettings.font_family,
-        font_size: parsed.font_size ?? defaultFontSettings.font_size,
-        line_height: parsed.line_height ?? defaultFontSettings.line_height,
+        fontFamily: parsed.font_family ?? defaultFontSettings.fontFamily,
+        fontSize: parsed.font_size ?? defaultFontSettings.fontSize,
+        lineHeight: parsed.line_height ?? defaultFontSettings.lineHeight,
       };
     }
   } catch {

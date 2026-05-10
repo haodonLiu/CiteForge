@@ -13,7 +13,9 @@ import {
   defaultFontSettings,
   getStoredFontSettings,
 } from '@/lib/theme';
-import type { AppSettings, FontSettings } from '@/lib/types';
+import type { FontSettings, LlmConfig, ChromaConfig, AppSettings } from '@/lib/types/domain';
+import type { ApiAppSettings, ApiLlmConfig, ApiChromaConfig, ApiFontSettings } from '@/lib/types/api';
+import { mapApiAppSettings } from '@/lib/types/domain';
 
 type TabId = 'llm' | 'chroma' | 'theme' | 'about';
 
@@ -36,25 +38,23 @@ const themes: { id: AppTheme; name: string; desc: string }[] = [
   { id: 'high_contrast', name: 'High Contrast', desc: '高对比，金色强调' },
 ];
 
-const defaultSettings: AppSettings = {
-  llm: {
-    provider: 'Ollama',
-    base_url: 'http://localhost:11434',
-    api_key: undefined,
-    model: 'llama3',
-    timeout_secs: 60,
-  },
-  chroma: {
-    url: 'http://localhost:8000',
-    collection: 'citeforge',
-    embedding_dimension: 1536,
-  },
-  font: { ...defaultFontSettings },
-};
-
 export default function Settings() {
   const [activeTab, setActiveTab] = useState<TabId>('llm');
-  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const [settings, setSettings] = useState<AppSettings>({
+    llm: {
+      provider: 'Ollama',
+      baseUrl: 'http://localhost:11434',
+      apiKey: undefined,
+      model: 'llama3',
+      timeoutSecs: 60,
+    },
+    chroma: {
+      url: 'http://localhost:8000',
+      collection: 'citeforge',
+      embeddingDimension: 1536,
+    },
+    font: { ...defaultFontSettings },
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -62,9 +62,9 @@ export default function Settings() {
   const setTheme = useAppStore((s) => s.setTheme);
 
   // Font settings local state for real-time preview
-  const [fontFamily, setFontFamily] = useState(defaultFontSettings.font_family);
-  const [fontSize, setFontSize] = useState(defaultFontSettings.font_size);
-  const [lineHeight, setLineHeight] = useState(defaultFontSettings.line_height);
+  const [fontFamily, setFontFamily] = useState(defaultFontSettings.fontFamily);
+  const [fontSize, setFontSize] = useState(defaultFontSettings.fontSize);
+  const [lineHeight, setLineHeight] = useState(defaultFontSettings.lineHeight);
 
   useEffect(() => {
     loadSettings();
@@ -73,53 +73,17 @@ export default function Settings() {
   async function loadSettings() {
     try {
       setLoading(true);
-      const data = await invoke<{ llm: any; chroma: any; font?: string }>('get_settings');
-
-      let loadedFont: FontSettings = { ...defaultFontSettings };
-      if (data.font) {
-        try {
-          const parsed = JSON.parse(data.font);
-          loadedFont = {
-            font_family: parsed.font_family ?? defaultFontSettings.font_family,
-            font_size: parsed.font_size ?? defaultFontSettings.font_size,
-            line_height: parsed.line_height ?? defaultFontSettings.line_height,
-          };
-        } catch {
-          // ignore
-        }
-      } else {
-        // Fallback to localStorage
-        loadedFont = getStoredFontSettings();
-      }
-
-      setSettings({
-        llm: {
-          provider:
-            data.llm.provider === 'OpenAI' ||
-            data.llm.provider === 'Anthropic' ||
-            data.llm.provider === 'Ollama'
-              ? (data.llm.provider as 'OpenAI' | 'Anthropic' | 'Ollama')
-              : 'Ollama',
-          base_url: data.llm.base_url || 'http://localhost:11434',
-          api_key: data.llm.api_key || undefined,
-          model: data.llm.model || 'llama3',
-          timeout_secs: data.llm.timeout_secs ?? 60,
-        },
-        chroma: {
-          url: data.chroma.url || 'http://localhost:8000',
-          collection: data.chroma.collection || 'citeforge',
-          embedding_dimension: data.chroma.embedding_dimension || 1536,
-        },
-        font: loadedFont,
-      });
+      const data = await invoke<ApiAppSettings>('get_settings');
+      const mapped = mapApiAppSettings(data);
+      setSettings(mapped);
 
       // Sync font local state
-      setFontFamily(loadedFont.font_family);
-      setFontSize(loadedFont.font_size);
-      setLineHeight(loadedFont.line_height);
-
-      // Apply on load
-      applyFontSettings(loadedFont);
+      if (mapped.font) {
+        setFontFamily(mapped.font.fontFamily);
+        setFontSize(mapped.font.fontSize);
+        setLineHeight(mapped.font.lineHeight);
+        applyFontSettings(mapped.font);
+      }
     } catch (e) {
       console.error('failed to load settings:', e);
       setMessage({ type: 'error', text: '加载配置失败' });
@@ -134,28 +98,29 @@ export default function Settings() {
       setMessage(null);
 
       const fontSettings: FontSettings = {
-        font_family: fontFamily,
-        font_size: fontSize,
-        line_height: lineHeight,
+        fontFamily,
+        fontSize,
+        lineHeight,
       };
 
-      const settingsToSave = {
+      // Convert to API types for saving
+      const apiSettings = {
         llm: {
           provider: settings.llm.provider,
-          base_url: settings.llm.base_url,
-          api_key: settings.llm.api_key || null,
+          base_url: settings.llm.baseUrl,
+          api_key: settings.llm.apiKey || null,
           model: settings.llm.model,
-          timeout_secs: settings.llm.timeout_secs ?? null,
+          timeout_secs: settings.llm.timeoutSecs ?? null,
         },
         chroma: {
           url: settings.chroma.url,
           collection: settings.chroma.collection,
-          embedding_dimension: settings.chroma.embedding_dimension,
+          embedding_dimension: settings.chroma.embeddingDimension,
         },
         font: JSON.stringify(fontSettings),
       };
 
-      await invoke('save_settings', { settings: settingsToSave });
+      await invoke('save_settings', { settings: apiSettings });
       persistFontSettings(fontSettings);
       setMessage({ type: 'success', text: '配置已保存' });
     } catch (e) {
@@ -166,14 +131,14 @@ export default function Settings() {
     }
   }
 
-  function updateLlm<K extends keyof AppSettings['llm']>(key: K, value: AppSettings['llm'][K]) {
+  function updateLlm<K extends keyof LlmConfig>(key: K, value: LlmConfig[K]) {
     setSettings((s) => ({
       ...s,
       llm: { ...s.llm, [key]: value },
     }));
   }
 
-  function updateChroma<K extends keyof AppSettings['chroma']>(key: K, value: AppSettings['chroma'][K]) {
+  function updateChroma<K extends keyof ChromaConfig>(key: K, value: ChromaConfig[K]) {
     setSettings((s) => ({
       ...s,
       chroma: { ...s.chroma, [key]: value },
@@ -182,7 +147,7 @@ export default function Settings() {
 
   // Real-time preview for font settings
   const previewFontSettings = useCallback(() => {
-    applyFontSettings({ font_family: fontFamily, font_size: fontSize, line_height: lineHeight });
+    applyFontSettings({ fontFamily, fontSize, lineHeight });
   }, [fontFamily, fontSize, lineHeight]);
 
   useEffect(() => {
@@ -212,16 +177,18 @@ export default function Settings() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-surface rounded-lg p-1">
+      <div className="flex gap-1 mb-6 bg-surface/80 backdrop-blur rounded-lg p-1 border border-border">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-              activeTab === tab.id
-                ? 'bg-primary text-white'
+            className={`
+              px-4 py-2 rounded-md text-sm font-medium transition-all duration-150
+              ${activeTab === tab.id
+                ? 'bg-primary text-white shadow-sm'
                 : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'
-            }`}
+              }
+            `}
           >
             {tab.label}
           </button>
@@ -247,7 +214,7 @@ export default function Settings() {
                       </label>
                       <Select
                         value={settings.llm.provider}
-                        onChange={(e) => updateLlm('provider', e.target.value as any)}
+                        onChange={(e) => updateLlm('provider', e.target.value as LlmConfig['provider'])}
                         className="w-full"
                       >
                         <option value="OpenAI">OpenAI</option>
@@ -271,9 +238,9 @@ export default function Settings() {
                       </label>
                       <Input
                         type="number"
-                        value={settings.llm.timeout_secs || ''}
+                        value={settings.llm.timeoutSecs || ''}
                         onChange={(e) =>
-                          updateLlm('timeout_secs', e.target.value ? parseInt(e.target.value) : undefined)
+                          updateLlm('timeoutSecs', e.target.value ? parseInt(e.target.value) : undefined)
                         }
                         placeholder="60"
                       />
@@ -285,8 +252,8 @@ export default function Settings() {
                       API 地址
                     </label>
                     <Input
-                      value={settings.llm.base_url}
-                      onChange={(e) => updateLlm('base_url', e.target.value)}
+                      value={settings.llm.baseUrl}
+                      onChange={(e) => updateLlm('baseUrl', e.target.value)}
                       placeholder="http://localhost:11434"
                     />
                     <p className="text-xs text-text-muted mt-1">
@@ -304,8 +271,8 @@ export default function Settings() {
                     </label>
                     <Input
                       type="password"
-                      value={settings.llm.api_key ?? ''}
-                      onChange={(e) => updateLlm('api_key', e.target.value || undefined)}
+                      value={settings.llm.apiKey ?? ''}
+                      onChange={(e) => updateLlm('apiKey', e.target.value || undefined)}
                       placeholder={settings.llm.provider === 'Ollama' ? '留空使用本地模型' : 'sk-...'}
                     />
                   </div>
@@ -350,8 +317,8 @@ export default function Settings() {
                         向量维度
                       </label>
                       <Select
-                        value={settings.chroma.embedding_dimension.toString()}
-                        onChange={(e) => updateChroma('embedding_dimension', parseInt(e.target.value))}
+                        value={settings.chroma.embeddingDimension.toString()}
+                        onChange={(e) => updateChroma('embeddingDimension', parseInt(e.target.value))}
                         className="w-full"
                       >
                         <option value="768">768 (e5-base, all-MiniLM)</option>

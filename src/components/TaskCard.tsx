@@ -6,36 +6,31 @@ interface TaskCardProps {
   status: TaskState;
   progress: number;
   error?: string;
+  onClick?: () => void;
 }
 
-export function TaskCard({ id, topic, status, progress, error }: TaskCardProps) {
+export function TaskCard({ id, topic, status, progress, error, onClick }: TaskCardProps) {
+  const progressPercent = Math.round(progress * 100);
+
   return (
-    <div style={{
-      border: '1px solid #ccc',
-      padding: '1rem',
-      marginBottom: '1rem',
-      borderRadius: '4px',
-    }}>
-      <h3 style={{ margin: '0 0 0.5rem 0' }}>{topic}</h3>
-      <p style={{ margin: '0 0 0.5rem 0', color: '#666' }}>
-        Status: {status}
+    <div
+      onClick={onClick}
+      className="border border-border rounded-lg p-4 mb-3 bg-card hover:border-primary/30 transition-colors cursor-pointer"
+    >
+      <h3 className="text-sm font-medium text-text-primary m-0 mb-2">{topic}</h3>
+      <p className="text-xs text-text-secondary m-0 mb-2">
+        状态: {status}
       </p>
-      <div style={{
-        width: '100%',
-        height: '8px',
-        backgroundColor: '#eee',
-        borderRadius: '4px',
-        overflow: 'hidden',
-      }}>
-        <div style={{
-          width: `${progress * 100}%`,
-          height: '100%',
-          backgroundColor: status === 'Failed' ? '#dc3545' : '#000',
-          transition: 'width 0.3s ease',
-        }} />
+      <div className="w-full h-2 bg-surface-hover rounded overflow-hidden">
+        <div
+          className={`h-full rounded transition-all duration-300 ${
+            status === 'Failed' ? 'bg-error' : 'bg-primary'
+          }`}
+          style={{ width: `${progressPercent}%` }}
+        />
       </div>
       {error && (
-        <p style={{ color: '#dc3545', marginTop: '0.5rem' }}>{error}</p>
+        <p className="text-xs text-error mt-2">{error}</p>
       )}
     </div>
   );

@@ -3,3 +3,5 @@ export { default as Card } from './Card';
 export { default as Input } from './Input';
 export { default as Badge } from './Badge';
 export { default as Select } from './Select';
+export { StatusBadge, taskStatusToPhase } from './StatusBadge';
+export { ProgressRing } from './ProgressRing';

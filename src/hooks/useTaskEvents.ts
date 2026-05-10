@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { listen, isTauri } from '@/lib/tauri';
-import type { TaskEvent } from '@/lib/types';
+import type { ApiTaskEvent } from '@/lib/types/api';
+import { mapApiTaskEvent } from '@/lib/types/domain';
 
 export function useTaskEvents() {
   const updateTaskFromEvent = useAppStore((s) => s.updateTaskFromEvent);
@@ -9,8 +10,9 @@ export function useTaskEvents() {
   useEffect(() => {
     if (!isTauri) return;
 
-    const unlisten = listen<TaskEvent>('task-event', (event: { payload: TaskEvent }) => {
-      updateTaskFromEvent(event.payload);
+    const unlisten = listen<ApiTaskEvent>('task-event', (event: { payload: ApiTaskEvent }) => {
+      const domainEvent = mapApiTaskEvent(event.payload);
+      updateTaskFromEvent(domainEvent);
     });
 
     return () => {

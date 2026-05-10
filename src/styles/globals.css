@@ -60,20 +60,9 @@
 
 /* Third-party library CSS isolation */
 .monaco-container,
-.katex-container,
 .pdf-container,
 div[data-type="monaco-editor"] {
   all: revert;
-}
-
-/* KaTeX fix: ensure proper rendering inside Tailwind */
-.katex-display {
-  margin: 1em 0;
-  overflow-x: auto;
-}
-
-.katex {
-  font-size: 1.1em;
 }
 
 /* Scrollbar styling for dark theme */
@@ -158,4 +147,16 @@ body {
 }
 .focus-ring:focus-visible {
   box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px var(--color-primary);
+}
+
+/* LaTeX image rendering */
+.latex-display {
+  display: block;
+  text-align: center;
+  margin: 1em 0;
+}
+
+.latex-inline {
+  display: inline-block;
+  vertical-align: middle;
 }

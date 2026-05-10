@@ -1,60 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import Button from '@/components/ui/Button';
-import { useAppStore } from '@/lib/store';
-import {
-  Bold,
-  Italic,
-  Heading1,
-  Heading2,
-  Heading3,
-  List,
-  ListOrdered,
-  Quote,
-  Link,
-  Image,
-  Code,
-  Table,
-  Eye,
-  Columns,
-  FileCode,
-} from 'lucide-react';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
-import katex from 'katex';
+import { EditorToolbar } from './index';
+import SourceViewer from './SourceViewer';
 
 interface MarkdownEditorProps {
   content: string;
   onChange: (value: string) => void;
 }
-
-const renderMath = (text: string): string => {
-  const blockRegex = /\$\$([\s\S]*?)\$\$/g;
-  const inlineRegex = /\$([^\$\n]+?)\$/g;
-
-  let result = text
-    .replace(blockRegex, (_, math) => {
-      try {
-        return `<div class="katex-block">${katex.renderToString(math.trim(), { displayMode: true, throwOnError: false })}</div>`;
-      } catch {
-        return `<div class="katex-block error">${math}</div>`;
-      }
-    })
-    .replace(inlineRegex, (_, math) => {
-      try {
-        return `<span class="katex-inline">${katex.renderToString(math.trim(), { displayMode: false, throwOnError: false })}</span>`;
-      } catch {
-        return `<span class="katex-inline error">${math}</span>`;
-      }
-    });
-
-  return result;
-};
-
-const parseMarkdown = (md: string): string => {
-  let html = marked.parse(md, { async: false }) as string;
-  html = renderMath(html);
-  return DOMPurify.sanitize(html);
-};
 
 type BlockType = 'paragraph' | 'heading1' | 'heading2' | 'heading3' | 'blockquote' | 'list-item' | 'ordered-list-item' | 'code-block';
 
@@ -90,52 +41,42 @@ const blockToMarkdown = (blocks: Block[]): string => {
 };
 
 export default function MarkdownEditor({ content, onChange }: MarkdownEditorProps) {
-  const theme = useAppStore((s) => s.theme);
   const editorRef = useRef<HTMLDivElement>(null);
-  const [viewMode, setViewMode] = useState<'edit' | 'split' | 'preview'>('split');
-  const [showSource, setShowSource] = useState(false);
   const [sourceContent, setSourceContent] = useState(content);
-  const [previewHtml, setPreviewHtml] = useState('');
+  const [showSource, setShowSource] = useState(false);
   const sourceEditorRef = useRef<HTMLTextAreaElement>(null);
 
+  // Render content when it changes
   useEffect(() => {
-    if (viewMode !== 'preview') {
-      const blocks = content.split('\n').map(line => getBlockType(line));
-      if (editorRef.current) {
-        const selection = window.getSelection();
-        const savedRange = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    if (!editorRef.current) return;
 
-        editorRef.current.innerHTML = blocks.map(block => {
-          const escaped = block.content
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
+    const blocks = content.split('\n').map(line => getBlockType(line));
+    const selection = window.getSelection();
+    const savedRange = selection?.rangeCount ? selection.getRangeAt(0) : null;
 
-          switch (block.type) {
-            case 'heading1': return `<h1 class="editor-h1" data-type="heading1">${escaped}</h1>`;
-            case 'heading2': return `<h2 class="editor-h2" data-type="heading2">${escaped}</h2>`;
-            case 'heading3': return `<h3 class="editor-h3" data-type="heading3">${escaped}</h3>`;
-            case 'blockquote': return `<blockquote class="editor-blockquote" data-type="blockquote">${escaped}</blockquote>`;
-            case 'list-item': return `<li class="editor-list-item" data-type="list-item">${escaped}</li>`;
-            case 'ordered-list-item': return `<li class="editor-ordered-item" data-type="ordered-list-item">${escaped}</li>`;
-            case 'code-block': return `<pre class="editor-code-block" data-type="code-block"><code>${escaped}</code></pre>`;
-            default: return block.content === '' ? '<br>' : `<p class="editor-p" data-type="paragraph">${escaped}</p>`;
-          }
-        }).join('');
+    editorRef.current.innerHTML = blocks.map(block => {
+      const escaped = block.content
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 
-        if (savedRange) {
-          selection?.removeAllRanges();
-          selection?.addRange(savedRange);
-        }
+      switch (block.type) {
+        case 'heading1': return `<h1 class="editor-h1" data-type="heading1">${escaped}</h1>`;
+        case 'heading2': return `<h2 class="editor-h2" data-type="heading2">${escaped}</h2>`;
+        case 'heading3': return `<h3 class="editor-h3" data-type="heading3">${escaped}</h3>`;
+        case 'blockquote': return `<blockquote class="editor-blockquote" data-type="blockquote">${escaped}</blockquote>`;
+        case 'list-item': return `<li class="editor-list-item" data-type="list-item">${escaped}</li>`;
+        case 'ordered-list-item': return `<li class="editor-ordered-item" data-type="ordered-list-item">${escaped}</li>`;
+        case 'code-block': return `<pre class="editor-code-block" data-type="code-block"><code>${escaped}</code></pre>`;
+        default: return block.content === '' ? '<br>' : `<p class="editor-p" data-type="paragraph">${escaped}</p>`;
       }
-    }
-  }, [content, viewMode]);
+    }).join('');
 
-  useEffect(() => {
-    if (viewMode === 'preview' || viewMode === 'split') {
-      setPreviewHtml(parseMarkdown(content));
+    if (savedRange) {
+      selection?.removeAllRanges();
+      selection?.addRange(savedRange);
     }
-  }, [content, viewMode]);
+  }, [content]);
 
   const getMarkdownFromEditor = useCallback((): string => {
     if (!editorRef.current) return content;
@@ -195,133 +136,44 @@ export default function MarkdownEditor({ content, onChange }: MarkdownEditorProp
     handleInput();
   };
 
-  const toolbarGroups = [
-    {
-      label: '段落',
-      items: [
-        { icon: Heading1, title: '标题 1', action: () => execCommand('formatBlock', 'h1') },
-        { icon: Heading2, title: '标题 2', action: () => execCommand('formatBlock', 'h2') },
-        { icon: Heading3, title: '标题 3', action: () => execCommand('formatBlock', 'h3') },
-      ],
-    },
-    {
-      label: '列表',
-      items: [
-        { icon: List, title: '无序列表', action: () => execCommand('insertUnorderedList') },
-        { icon: ListOrdered, title: '有序列表', action: () => execCommand('insertOrderedList') },
-      ],
-    },
-    {
-      label: '格式',
-      items: [
-        { icon: Bold, title: '粗体 (Ctrl+B)', action: () => execCommand('bold') },
-        { icon: Italic, title: '斜体 (Ctrl+I)', action: () => execCommand('italic') },
-      ],
-    },
-    {
-      label: '插入',
-      items: [
-        { icon: Quote, title: '引用', action: () => execCommand('formatBlock', 'blockquote') },
-        { icon: Link, title: '链接', action: () => {
-          const url = prompt('输入链接地址:');
-          if (url) execCommand('createLink', url);
-        }},
-        { icon: Image, title: '图片', action: () => {
-          const url = prompt('输入图片地址:');
-          if (url) execCommand('insertImage', url);
-        }},
-        { icon: Code, title: '代码块', action: () => execCommand('formatBlock', 'pre') },
-        { icon: Table, title: '表格', action: () => {
-          const markdown = '\n| 列1 | 列2 |\n| --- | --- |\n| 内容 | 内容 |\n';
-          execCommand('insertText', markdown);
-        }},
-      ],
-    },
-    {
-      label: '视图',
-      items: [
-        { icon: Eye, title: '预览', action: () => setViewMode('preview') },
-        { icon: Columns, title: '分屏', action: () => setViewMode('split') },
-        { icon: FileCode, title: '源码', action: () => setShowSource(!showSource) },
-      ],
-    },
-  ];
-
   return (
     <div className="h-full flex flex-col">
-      <div className="h-10 flex items-center gap-4 px-3 border-b border-border bg-surface shrink-0">
-        {toolbarGroups.map((group, groupIdx) => (
-          <div key={group.label} className="flex items-center gap-1">
-            {groupIdx > 0 && <div className="w-px h-4 bg-border" />}
-            {group.items.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Button
-                  key={item.title}
-                  size="sm"
-                  variant="ghost"
-                  onClick={item.action}
-                  title={item.title}
-                  className="w-7 h-7 p-0"
-                >
-                  <Icon size={14} />
-                </Button>
-              );
-            })}
-          </div>
-        ))}
-      </div>
+      <EditorToolbar
+        onExecCommand={execCommand}
+        onToggleSource={() => setShowSource(!showSource)}
+        showSource={showSource}
+      />
 
       <div className="flex-1 flex overflow-hidden">
-        {(viewMode === 'edit' || viewMode === 'split') && (
-          <div className={`flex ${viewMode === 'split' ? 'w-1/2' : 'w-full'} ${showSource ? 'w-1/2' : ''}`}>
-            <div
-              ref={editorRef}
-              contentEditable
-              suppressContentEditableWarning
-              onKeyDown={handleKeyDown}
-              onInput={handleInput}
-              className="flex-1 p-6 overflow-auto outline-none editor-content"
-              style={{
-                fontFamily: 'var(--font-serif)',
-                fontSize: '15px',
-                lineHeight: '1.75',
-                background: 'var(--color-background)',
-                color: 'var(--color-text-primary)',
-              }}
-              data-placeholder="输入文字，或使用 Markdown 语法..."
-            />
-          </div>
-        )}
+        <div className={`flex-1 overflow-auto ${showSource ? 'w-1/2' : 'w-full'}`}>
+          <div
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            onKeyDown={handleKeyDown}
+            onInput={handleInput}
+            className="w-full h-full p-6 overflow-auto outline-none editor-content"
+            style={{
+              fontFamily: 'var(--font-serif)',
+              fontSize: '16px',
+              lineHeight: '1.8',
+              background: 'var(--color-background)',
+              color: 'var(--color-text-primary)',
+            }}
+            data-placeholder="开始写作，或使用 Markdown 语法..."
+          />
+        </div>
 
         {showSource && (
-          <div className="w-1/2 border-l border-border bg-[var(--color-surface)]">
-            <textarea
+          <div className="w-1/2 border-l border-border bg-surface/30">
+            <SourceViewer
               ref={sourceEditorRef}
-              value={sourceContent}
-              onChange={(e) => {
-                setSourceContent(e.target.value);
-                onChange(e.target.value);
+              content={sourceContent}
+              onChange={(value) => {
+                setSourceContent(value);
+                onChange(value);
               }}
-              className="w-full h-full p-4 resize-none outline-none font-mono text-sm"
-              style={{
-                background: 'var(--color-surface)',
-                color: 'var(--color-text-primary)',
-              }}
-              spellCheck={false}
             />
-          </div>
-        )}
-
-        {viewMode !== 'edit' && (
-          <div className={`${viewMode === 'split' ? 'w-1/2' : 'w-full'} border-l border-border overflow-auto`}>
-            <div className="p-6 prose-content">
-              <div
-                className="preview-rendered"
-                style={{ fontFamily: 'var(--font-serif)' }}
-                dangerouslySetInnerHTML={{ __html: previewHtml }}
-              />
-            </div>
           </div>
         )}
       </div>
@@ -329,6 +181,11 @@ export default function MarkdownEditor({ content, onChange }: MarkdownEditorProp
       <style>{`
         .editor-content [contenteditable]:focus {
           outline: none;
+        }
+        .editor-content [contenteditable]:empty:before {
+          content: attr(data-placeholder);
+          color: var(--color-text-muted);
+          pointer-events: none;
         }
         .editor-content h1.editor-h1 {
           font-size: 1.875rem;
@@ -366,49 +223,6 @@ export default function MarkdownEditor({ content, onChange }: MarkdownEditorProp
           overflow-x: auto;
           font-family: var(--font-mono);
           font-size: 0.875rem;
-        }
-        .preview-rendered h1 {
-          font-size: 1.875rem;
-          font-weight: 700;
-          margin: 1.5rem 0 0.75rem;
-        }
-        .preview-rendered h2 {
-          font-size: 1.5rem;
-          font-weight: 600;
-          margin: 1.25rem 0 0.625rem;
-        }
-        .preview-rendered h3 {
-          font-size: 1.25rem;
-          font-weight: 600;
-          margin: 1rem 0 0.5rem;
-        }
-        .preview-rendered blockquote {
-          border-left: 4px solid var(--color-primary);
-          padding-left: 1rem;
-          margin: 1rem 0;
-          font-style: italic;
-          color: var(--color-text-secondary);
-        }
-        .preview-rendered pre {
-          background: var(--color-code-background);
-          padding: 1rem;
-          border-radius: 4px;
-          overflow-x: auto;
-        }
-        .preview-rendered code {
-          font-family: var(--font-mono);
-          font-size: 0.875rem;
-        }
-        .preview-rendered img {
-          max-width: 100%;
-          height: auto;
-        }
-        .preview-rendered .katex-block {
-          margin: 1rem 0;
-          overflow-x: auto;
-        }
-        .preview-rendered .katex-inline {
-          padding: 0 0.25rem;
         }
       `}</style>
     </div>

@@ -50,48 +50,24 @@ Agents communicate via shared workspace JSON files, not in-memory state.
 citeforge/
 ├── src/                      # Vite/React frontend
 │   ├── pages/                # Route pages (React Router)
-│   ├── components/           # React components
-│   ├── hooks/                # Custom hooks
-│   └── lib/                  # Shared utilities
+│   ├── components/           # React components (agent/, editor/, layout/, library/, reader/, ui/)
+│   ├── hooks/                # Custom hooks (useTaskEvents, useOrchestrator, usePdfIndex)
+│   ├── lib/                  # Core logic (store.ts, tauri.ts, theme.ts, types.ts, tauri-mocks/)
+│   └── styles/               # CSS (globals.css, themes.css)
 ├── src-tauri/                # Tauri application
 │   ├── src/
-│   │   ├── main.rs           # Entry point
-│   │   ├── lib.rs            # Library exports
-│   │   ├── commands/         # IPC command handlers
-│   │   └── state.rs          # Application state
+│   │   ├── main.rs           # Entry point: config, logging, AppContainer, Tauri builder
+│   │   ├── lib.rs            # Module exports
+│   │   ├── config.rs         # AppConfig, LlmConfig, ChromaConfig
+│   │   ├── agent/            # Agent context + personality definitions
+│   │   ├── agents/           # ResearcherAgent, AnalystAgent, WriterAgent
+│   │   ├── application/      # AppContainer (DI), AppFacade, DTOs, Outbox
+│   │   ├── domain/           # Agent trait, TaskActor (async state machine), ExecutionContext
+│   │   └── presentation/     # Tauri IPC commands (commands.rs)
 │   └── Cargo.toml
-├── crates/                   # Rust workspace crates
-│   ├── citeforge-core/       # Core types, state machine
-│   │   ├── src/
-│   │   │   ├── lib.rs
-│   │   │   ├── models.rs     # Data models (Pydantic-equivalent in Rust)
-│   │   │   ├── orchestrator.rs
-│   │   │   └── errors.rs     # Error types
-│   ├── citeforge-llm/        # LLM provider abstraction
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       ├── providers/    # OpenAI, Anthropic, Ollama
-│   │       └── embedding.rs
-│   ├── citeforge-retrieval/  # Hybrid search and reranking
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       ├── hybrid_search.rs
-│   │       └── reranker.rs
-│   ├── citeforge-pdf/        # PDF parsing
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       └── parser.rs
-│   ├── citeforge-search/     # Semantic Scholar API
-│   │   └── src/
-│   │       └── lib.rs
-│   ├── citeforge-workspace/  # Workspace management
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       ├── manager.rs
-│   │       └── integrity.rs  # SHA-256 verification
-│   └── citeforge-chroma/     # ChromaDB integration
-│       └── src/
-│           └── lib.rs
+├── crates/                   # Rust workspace crates (see table in CLAUDE.md)
+├── migrations/               # SQLite schema (001_initial.sql)
+└── config.yaml               # Application configuration template
 ```
 
 ## Build and Install
