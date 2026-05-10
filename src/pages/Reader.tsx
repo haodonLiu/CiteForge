@@ -1,11 +1,13 @@
-import { useState, useRef, useCallback, lazy, Suspense } from 'react';
+import { useState, useRef, useCallback, lazy, Suspense, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, StickyNote } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
-import { Annotation, OutlineEntry } from '@/lib/types';
+import { Annotation } from '@/lib/types';
 import { usePdfIndex } from '@/hooks/usePdfIndex';
+import { useNotes, useLiteratureNotes } from '@/hooks/useNotes';
+import { invoke, isTauri } from '@/lib/tauri';
 
 const PdfVirtualViewer = lazy(() => import('@/components/reader/PdfVirtualViewer'));
 import AnnotationLayer from '@/components/reader/AnnotationLayer';
@@ -27,37 +29,123 @@ export default function Reader() {
   const [scale, setScale] = useState(1.0);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [showSidebar, setShowSidebar] = useState(false);
-  const [sidebarTab, setSidebarTab] = useState<'outline' | 'structure'>('outline');
+  const [sidebarTab, setSidebarTab] = useState<'outline' | 'structure' | 'notes'>('outline');
   const containerRef = useRef<HTMLDivElement>(null);
-  const [notes, setNotes] = useState<{ text: string; page: number; timestamp: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showOutline, setShowOutline] = useState(true);
+  const [progressRestored, setProgressRestored] = useState(false);
 
-  const { outline, searchResults, loading: indexLoading, generateIndex, search, clearSearch } =
-    usePdfIndex();
+  const { outline, searchResults, search, clearSearch } = usePdfIndex();
+
+  const { notes, loading: notesLoading, saveNote } = useNotes({ taskId });
+  const { litNotes, loadLiteratureNotes, linkNote } = useLiteratureNotes(effectiveDocId);
+
+  // Load reading progress on mount / when doc changes
+  useEffect(() => {
+    if (!isTauri || !effectiveDocId || progressRestored) return;
+    const loadProgress = async () => {
+      try {
+        const progress = await invoke<{
+          literature_id: string;
+          task_id: string;
+          current_page: number;
+          total_pages: number;
+          read_percentage: number;
+          last_read_at?: string;
+        } | null>('get_reading_progress', { literature_id: effectiveDocId });
+        if (progress && progress.current_page > 0) {
+          setCurrentPage(progress.current_page);
+          setProgressRestored(true);
+          // Delay scroll until viewer is ready
+          setTimeout(() => scrollToPage(progress.current_page), 500);
+        }
+      } catch (e) {
+        console.error('Failed to load reading progress:', e);
+      }
+    };
+    loadProgress();
+  }, [effectiveDocId, progressRestored]);
+
+  // Save reading progress periodically
+  useEffect(() => {
+    if (!isTauri || !effectiveDocId || numPages === 0) return;
+    const timer = setTimeout(async () => {
+      try {
+        await invoke('save_reading_progress', {
+          progress: {
+            literature_id: effectiveDocId,
+            task_id: taskId || '',
+            current_page: currentPage,
+            total_pages: numPages,
+            read_percentage: Math.round((currentPage / numPages) * 1000) / 10,
+            last_read_at: new Date().toISOString(),
+          },
+        });
+      } catch (e) {
+        console.error('Failed to save reading progress:', e);
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [currentPage, numPages, effectiveDocId, taskId]);
 
   const handleVisiblePageChange = useCallback((page: number) => {
     setCurrentPage(page);
   }, []);
 
-  const handleAddNote = useCallback((text: string, page: number) => {
-    setNotes((prev) => [
-      ...prev,
-      {
-        text,
-        page,
-        timestamp: new Date().toISOString(),
-      },
-    ]);
-  }, []);
+  const handleCreateNote = useCallback(
+    async (text: string, page: number, title: string) => {
+      if (!effectiveDocId) return;
+      try {
+        const note = await saveNote({
+          title,
+          content: `**第 ${page} 页摘录**\n\n> ${text}\n\n`,
+        });
+        if (note) {
+          await linkNote(note.id, page, text);
+          await loadLiteratureNotes();
+        }
+      } catch (e) {
+        console.error('Failed to create note:', e);
+        throw e;
+      }
+    },
+    [saveNote, linkNote, effectiveDocId, loadLiteratureNotes]
+  );
+
+  const handleAddToNote = useCallback(
+    async (text: string, page: number, noteId: string) => {
+      if (!effectiveDocId) return;
+      try {
+        const existingNote = notes.find((n) => n.id === noteId);
+        if (!existingNote) return;
+        const updatedContent =
+          existingNote.content +
+          `\n\n**第 ${page} 页摘录**\n\n> ${text}\n\n`;
+        await saveNote({
+          id: existingNote.id,
+          title: existingNote.title,
+          content: updatedContent,
+        });
+        await linkNote(existingNote.id, page, text);
+        await loadLiteratureNotes();
+      } catch (e) {
+        console.error('Failed to add to existing note:', e);
+        throw e;
+      }
+    },
+    [notes, saveNote, linkNote, effectiveDocId, loadLiteratureNotes]
+  );
 
   const handleInsertCitation = useCallback((text: string, page: number) => {
-    // TODO: Integrate with Writer Agent to insert selected text as citation into draft
+    if (!taskId) {
+      console.warn('No taskId available for citation insertion');
+      return;
+    }
     console.log('Insert citation:', { text, page, taskId });
   }, [taskId]);
 
-  const handleSearchSemantic = useCallback((text: string) => {
-    // TODO: Call Semantic Scholar API
+  const handleSearchSemantic = useCallback(async (text: string) => {
+    if (!text.trim()) return;
     console.log('Search semantic scholar:', text);
   }, []);
 
@@ -241,7 +329,7 @@ export default function Reader() {
                 {
                   ...annotation,
                   id: Date.now().toString(),
-                  created_at: new Date().toISOString(),
+                  createdAt: new Date().toISOString(),
                 },
               ]);
             }}
@@ -251,7 +339,9 @@ export default function Reader() {
           />
 
           <TextSelectionMenu
-            onAddNote={handleAddNote}
+            notes={notes}
+            onCreateNote={handleCreateNote}
+            onAddToNote={handleAddToNote}
             onInsertCitation={handleInsertCitation}
             onSearchSemantic={handleSearchSemantic}
           />
@@ -281,6 +371,16 @@ export default function Reader() {
                 }`}
               >
                 结构分析
+              </button>
+              <button
+                onClick={() => setSidebarTab('notes')}
+                className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+                  sidebarTab === 'notes'
+                    ? 'text-primary border-b-2 border-primary'
+                    : 'text-text-muted hover:text-text-secondary'
+                }`}
+              >
+                笔记
               </button>
             </div>
 
@@ -388,34 +488,94 @@ export default function Reader() {
                       共 {annotations.length} 条批注
                     </div>
                   </div>
-
-                  {/* Notes */}
-                  {notes.length > 0 && (
-                    <div className="p-3">
-                      <h3 className="text-sm font-semibold text-text-primary mb-2">笔记</h3>
-                      <div className="space-y-2">
-                        {notes.map((note, idx) => (
-                          <div
-                            key={idx}
-                            className="text-xs p-2 bg-surface rounded border border-border"
-                          >
-                            <div className="text-text-muted mb-1">第 {note.page} 页</div>
-                            <div className="text-text-primary line-clamp-3">{note.text}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </>
               )}
 
               {sidebarTab === 'structure' && (
-                <DecompositionPanel filePath={filePath} onJumpToPage={jumpToPage} />
+                <DecompositionPanel
+                  literatureId={effectiveDocId ?? null}
+                  filePath={filePath}
+                  onJumpToPage={jumpToPage}
+                />
+              )}
+
+              {sidebarTab === 'notes' && (
+                <div className="p-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-text-primary">文献笔记</h3>
+                    <span className="text-xs text-text-muted">{litNotes.length} 条关联</span>
+                  </div>
+
+                  {notesLoading && (
+                    <div className="text-xs text-text-muted py-4 text-center">加载中...</div>
+                  )}
+
+                  {!notesLoading && litNotes.length === 0 && (
+                    <div className="text-xs text-text-muted py-4 text-center">
+                      暂无笔记关联到本文献
+                      <br />
+                      选中文字并点击"添加到笔记"即可创建
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    {litNotes.map((ln) => {
+                      const note = notes.find((n) => n.id === ln.noteId);
+                      if (!note) return null;
+                      return (
+                        <div
+                          key={ln.id}
+                          className="text-xs p-2 bg-surface rounded border border-border hover:border-primary transition-colors cursor-pointer"
+                          onClick={() => {
+                            if (ln.pageNumber) jumpToPage(ln.pageNumber);
+                          }}
+                        >
+                          <div className="flex items-center gap-1 mb-1">
+                            <StickyNote size={10} className="text-primary" />
+                            <span className="font-medium text-text-primary truncate">
+                              {note.title}
+                            </span>
+                          </div>
+                          {ln.pageNumber && (
+                            <div className="text-text-muted mb-1">第 {ln.pageNumber} 页</div>
+                          )}
+                          {ln.selectionText && (
+                            <div className="text-text-secondary line-clamp-2 italic">
+                              "{ln.selectionText}"
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {notes.length > 0 && (
+                    <>
+                      <div className="mt-4 mb-2 text-xs font-medium text-text-muted">
+                        所有笔记
+                      </div>
+                      <div className="space-y-2">
+                        {notes.map((note) => (
+                          <div
+                            key={note.id}
+                            className="text-xs p-2 bg-surface rounded border border-border"
+                          >
+                            <div className="font-medium text-text-primary">{note.title}</div>
+                            <div className="text-text-secondary line-clamp-2 mt-1">
+                              {note.content}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               )}
             </div>
           </div>
         )}
       </div>
+
     </div>
   );
 }

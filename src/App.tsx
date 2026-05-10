@@ -11,6 +11,7 @@ import Editor from '@/pages/Editor';
 import Agent from '@/pages/Agent';
 import Settings from '@/pages/Settings';
 import TaskDashboard from '@/pages/TaskDashboard';
+import Notes from '@/pages/Notes';
 
 function AppContent() {
   useTaskEvents();
@@ -22,6 +23,7 @@ function AppContent() {
           {/* Global routes */}
           <Route path="/" element={<Home />} />
           <Route path="/library" element={<Library />} />
+          <Route path="/notes" element={<Notes />} />
           <Route path="/settings" element={<Settings />} />
 
           {/* Task-scoped routes */}

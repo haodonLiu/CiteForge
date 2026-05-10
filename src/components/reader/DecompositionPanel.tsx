@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { invoke, listen } from '@/lib/tauri';
-import { Layers, AlertTriangle, RefreshCw, ChevronRight, ChevronDown } from 'lucide-react';
-import Button from '@/components/ui/Button';
+import { invoke, isTauri, listen } from '@/lib/tauri';
+import DecompositionIdle from './DecompositionIdle';
+import DecompositionLoading from './DecompositionLoading';
+import DecompositionError from './DecompositionError';
+import DecompositionTree from './DecompositionTree';
+import DecompositionStats from './DecompositionStats';
 
 interface SectionNode {
   id: string;
@@ -27,43 +30,69 @@ interface DecompositionProgress {
   message: string;
 }
 
+interface CachedSection {
+  id: string;
+  literature_id: string;
+  section_id: string;
+  title: string;
+  section_type?: string;
+  page_start?: number;
+  page_end?: number;
+  content_summary?: string;
+  extracted_at: string;
+}
+
 type PanelStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 interface Props {
+  literatureId: string | null;
   filePath: string | null;
   onJumpToPage?: (page: number) => void;
 }
 
-const SECTION_TYPE_COLORS: Record<string, string> = {
-  Abstract: 'text-info',
-  Introduction: 'text-success',
-  RelatedWork: 'text-text-muted',
-  Methodology: 'text-warning',
-  Experiment: 'text-primary',
-  Discussion: 'text-text-secondary',
-  Conclusion: 'text-success',
-  Unknown: 'text-text-muted',
-};
+function cachedSectionsToStructure(cached: CachedSection[]): PaperStructure {
+  const abstractSection = cached.find((s) => s.section_type === 'Abstract');
+  const abstractNode: SectionNode | null = abstractSection
+    ? {
+        id: abstractSection.section_id,
+        title: abstractSection.title,
+        level: abstractSection.section_id.split('.').length,
+        page_start: abstractSection.page_start || 0,
+        page_end: abstractSection.page_end || 0,
+        section_type: abstractSection.section_type || 'Abstract',
+        paragraphs: [],
+      }
+    : null;
 
-const SECTION_TYPE_ICONS: Record<string, string> = {
-  Abstract: '📄',
-  Introduction: '📖',
-  RelatedWork: '📚',
-  Methodology: '⚙️',
-  Experiment: '🧪',
-  Discussion: '💬',
-  Conclusion: '✅',
-  Unknown: '❓',
-};
+  const sections: SectionNode[] = cached
+    .filter((s) => s.section_type !== 'Abstract')
+    .map((s) => ({
+      id: s.section_id,
+      title: s.title,
+      level: s.section_id.split('.').length,
+      page_start: s.page_start || 0,
+      page_end: s.page_end || 0,
+      section_type: s.section_type || 'Unknown',
+      paragraphs: [],
+    }));
 
-export default function DecompositionPanel({ filePath, onJumpToPage }: Props) {
+  const totalPages = cached.reduce((max, s) => Math.max(max, s.page_end || 0), 0);
+
+  return {
+    title: '文献结构',
+    abstract_node: abstractNode,
+    sections,
+    total_pages: totalPages,
+  };
+}
+
+export default function DecompositionPanel({ literatureId, filePath, onJumpToPage }: Props) {
   const [status, setStatus] = useState<PanelStatus>('idle');
   const [structure, setStructure] = useState<PaperStructure | null>(null);
   const [progress, setProgress] = useState<DecompositionProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
-  // Listen for decomposition progress events
   useEffect(() => {
     const unlisten = listen<DecompositionProgress>('decomposition-progress', (event: { payload: DecompositionProgress }) => {
       setProgress(event.payload);
@@ -71,36 +100,113 @@ export default function DecompositionPanel({ filePath, onJumpToPage }: Props) {
     return () => { unlisten.then((fn: () => void) => fn()); };
   }, []);
 
-  const analyzeStructure = useCallback(async (path: string) => {
-    try {
-      setStatus('loading');
-      setError(null);
-      setProgress(null);
+  const saveSectionsToDb = useCallback(
+    async (result: PaperStructure) => {
+      if (!isTauri || !literatureId) return;
+      try {
+        const now = new Date().toISOString();
+        const sections: CachedSection[] = result.sections.map((s) => ({
+          id: `ls-${literatureId}-${s.id}`,
+          literature_id: literatureId,
+          section_id: s.id,
+          title: s.title,
+          section_type: s.section_type,
+          page_start: s.page_start,
+          page_end: s.page_end,
+          content_summary: s.paragraphs.map((p) => p.text).join('\n').slice(0, 500),
+          extracted_at: now,
+        }));
 
-      const result = await invoke<PaperStructure>('analyze_paper_structure', {
-        filePath: path,
-      });
+        if (result.abstract_node) {
+          sections.unshift({
+            id: `ls-${literatureId}-abstract`,
+            literature_id: literatureId,
+            section_id: result.abstract_node.id,
+            title: result.abstract_node.title,
+            section_type: 'Abstract',
+            page_start: result.abstract_node.page_start,
+            page_end: result.abstract_node.page_end,
+            content_summary: result.abstract_node.paragraphs
+              .map((p) => p.text)
+              .join('\n')
+              .slice(0, 500),
+            extracted_at: now,
+          });
+        }
 
-      setStructure(result);
-      setStatus('ready');
-    } catch (e) {
-      setError(String(e));
-      setStatus('error');
-    }
-  }, []);
+        await invoke('save_literature_sections', {
+          literature_id: literatureId,
+          sections,
+        });
+      } catch (e) {
+        console.error('Failed to save literature sections:', e);
+      }
+    },
+    [literatureId]
+  );
 
-  // Auto-analyze when filePath changes
+  const analyzeStructure = useCallback(
+    async (path: string) => {
+      try {
+        setStatus('loading');
+        setError(null);
+        setProgress(null);
+
+        const result = await invoke<PaperStructure>('analyze_paper_structure', {
+          filePath: path,
+        });
+
+        setStructure(result);
+        setStatus('ready');
+
+        // Save to database for caching
+        await saveSectionsToDb(result);
+      } catch (e) {
+        setError(String(e));
+        setStatus('error');
+      }
+    },
+    [saveSectionsToDb]
+  );
+
   useEffect(() => {
-    if (filePath) {
-      analyzeStructure(filePath);
-    } else {
+    if (!literatureId && !filePath) {
       setStatus('idle');
       setStructure(null);
+      return;
     }
-  }, [filePath, analyzeStructure]);
+
+    const load = async () => {
+      // 1. Try cache first if literatureId is available
+      if (literatureId && isTauri) {
+        try {
+          const cached = await invoke<CachedSection[]>('get_literature_sections', {
+            literature_id: literatureId,
+          });
+          if (cached && cached.length > 0) {
+            const reconstructed = cachedSectionsToStructure(cached);
+            setStructure(reconstructed);
+            setStatus('ready');
+            return;
+          }
+        } catch (e) {
+          console.error('Failed to load cached sections:', e);
+        }
+      }
+
+      // 2. Fall back to analysis
+      if (filePath) {
+        await analyzeStructure(filePath);
+      } else {
+        setStatus('idle');
+      }
+    };
+
+    load();
+  }, [filePath, literatureId, analyzeStructure]);
 
   const toggleSection = (id: string) => {
-    setExpandedSections(prev => {
+    setExpandedSections((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
@@ -111,69 +217,21 @@ export default function DecompositionPanel({ filePath, onJumpToPage }: Props) {
     });
   };
 
-  // Idle state: no paper selected
-  if (status === 'idle' && !filePath) {
-    return (
-      <div className="flex flex-col items-center gap-3 py-12 text-text-muted">
-        <Layers size={32} className="opacity-30" />
-        <p className="text-sm">选择一篇论文开始拆解</p>
-        <p className="text-xs">或导入 PDF 自动提取结构</p>
-      </div>
-    );
+  if (status === 'idle' && !filePath && !structure) {
+    return <DecompositionIdle />;
   }
 
-  // Loading state
   if (status === 'loading') {
-    return (
-      <div className="flex flex-col items-center gap-3 py-8 text-text-muted">
-        <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-        <span className="text-sm">{progress?.message || '正在解析论文结构...'}</span>
-        {progress && (
-          <div className="w-full px-4">
-            <div className="w-full h-1.5 bg-surface-hover rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary rounded-full transition-all duration-300"
-                style={{ width: `${progress.progress}%` }}
-              />
-            </div>
-            <span className="text-xs text-text-muted mt-1 block text-center">
-              {progress.stage} — {progress.progress}%
-            </span>
-          </div>
-        )}
-      </div>
-    );
+    return <DecompositionLoading progress={progress} />;
   }
 
-  // Error state
   if (status === 'error') {
-    return (
-      <div className="p-4">
-        <div className="border border-error/30 bg-error/5 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle size={16} className="text-error" />
-            <h4 className="text-error font-medium text-sm">结构提取失败</h4>
-          </div>
-          <p className="text-xs text-text-secondary mb-3">{error}</p>
-          <div className="flex gap-2">
-            <Button size="sm" onClick={() => filePath && analyzeStructure(filePath)}>
-              <RefreshCw size={12} className="mr-1" />
-              重试
-            </Button>
-            <Button size="sm" variant="ghost">
-              手动编辑结构
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
+    return <DecompositionError error={error} onRetry={() => filePath && analyzeStructure(filePath)} />;
   }
 
-  // Ready state: display structure
   if (status === 'ready' && structure) {
     return (
       <div className="flex flex-col h-full">
-        {/* Paper title */}
         <div className="p-3 border-b border-border">
           <h3 className="text-sm font-semibold text-text-primary line-clamp-2">
             {structure.title}
@@ -183,85 +241,14 @@ export default function DecompositionPanel({ filePath, onJumpToPage }: Props) {
           </div>
         </div>
 
-        {/* Structure tree */}
-        <div className="flex-1 overflow-y-auto p-2">
-          {/* Abstract */}
-          {structure.abstract_node && (
-            <button
-              onClick={() => onJumpToPage?.(structure.abstract_node!.page_start)}
-              className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-surface-hover transition-colors flex items-center gap-2"
-            >
-              <span>{SECTION_TYPE_ICONS.Abstract}</span>
-              <span className="text-text-secondary">Abstract</span>
-              <span className="text-text-muted ml-auto">p.{structure.abstract_node.page_start}</span>
-            </button>
-          )}
+        <DecompositionTree
+          structure={structure}
+          expandedSections={expandedSections}
+          onToggleSection={toggleSection}
+          onJumpToPage={onJumpToPage}
+        />
 
-          {/* Sections */}
-          {structure.sections.map((section) => {
-            const isExpanded = expandedSections.has(section.id);
-            const hasChildren = structure.sections.some(
-              s => s.id !== section.id && s.id.startsWith(section.id + '.')
-            );
-            const typeColor = SECTION_TYPE_COLORS[section.section_type] || 'text-text-muted';
-
-            return (
-              <div key={section.id}>
-                <button
-                  onClick={() => {
-                    onJumpToPage?.(section.page_start);
-                    if (hasChildren) toggleSection(section.id);
-                  }}
-                  className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-surface-hover transition-colors flex items-center gap-1.5"
-                  style={{ paddingLeft: `${(section.level - 1) * 12 + 8}px` }}
-                >
-                  {hasChildren ? (
-                    isExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />
-                  ) : (
-                    <span className="w-[10px]" />
-                  )}
-                  <span>{SECTION_TYPE_ICONS[section.section_type] || '❓'}</span>
-                  <span className={`flex-1 truncate ${typeColor}`}>
-                    {section.title}
-                  </span>
-                  <span className="text-text-muted shrink-0">
-                    p.{section.page_start}
-                  </span>
-                </button>
-
-                {/* Section type badge (shown when expanded) */}
-                {isExpanded && (
-                  <div
-                    className="px-2 py-1 text-[10px] text-text-muted"
-                    style={{ paddingLeft: `${(section.level - 1) * 12 + 32}px` }}
-                  >
-                    <span className="inline-block px-1.5 py-0.5 bg-surface-hover rounded">
-                      {section.section_type}
-                    </span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Quick stats */}
-        <div className="p-3 border-t border-border">
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="flex justify-between">
-              <span className="text-text-muted">方法论</span>
-              <span className="text-text-secondary">
-                {structure.sections.filter(s => s.section_type === 'Methodology').length} 节
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-text-muted">实验</span>
-              <span className="text-text-secondary">
-                {structure.sections.filter(s => s.section_type === 'Experiment').length} 节
-              </span>
-            </div>
-          </div>
-        </div>
+        <DecompositionStats structure={structure} />
       </div>
     );
   }
