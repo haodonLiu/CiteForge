@@ -282,6 +282,24 @@ impl TaskActor {
             .map_err(|e| format!("writer task panicked: {}", e))?
             .map_err(|e| format!("writer failed: {}", e))?;
 
+        // Save themes to database
+        let theme_dtos: Vec<citeforge_workspace::LiteratureThemeDto> = analyst_output
+            .themes
+            .iter()
+            .map(|t| citeforge_workspace::LiteratureThemeDto {
+                id: t.id.clone(),
+                task_id: self.task_id.clone(),
+                name: t.name.clone(),
+                description: Some(t.description.clone()),
+                literature_ids: t.literature_ids.clone(),
+                created_at: chrono::Utc::now().to_rfc3339(),
+            })
+            .collect();
+
+        if let Err(e) = self.db.save_themes(&self.task_id, &theme_dtos).await {
+            tracing::error!("failed to save themes: {}", e);
+        }
+
         let theme_names: Vec<String> = analyst_output
             .themes
             .iter()

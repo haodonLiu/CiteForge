@@ -1,6 +1,9 @@
 use crate::application::AppContainer;
+use citeforge_core::entity::LiteratureEntry;
 use citeforge_core::event::AgentEvent;
+use citeforge_core::ports::SearchEngine;
 use citeforge_pdf::parser::{OutlineEntry, TextIndexEntry};
+use citeforge_workspace::LiteratureDto;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::Arc;
@@ -170,6 +173,7 @@ pub async fn save_settings(
         "openai" => LlmProvider::OpenAI,
         "anthropic" => LlmProvider::Anthropic,
         "ollama" => LlmProvider::Ollama,
+        "modelscope" => LlmProvider::ModelScope,
         _ => return Err(format!("invalid provider: {}", settings.llm.provider)),
     };
 
@@ -409,4 +413,656 @@ pub async fn get_time_records(
     container: State<'_, Arc<AppContainer>>,
 ) -> Result<std::collections::HashMap<String, u32>, String> {
     Ok(container.time_tracker.get_all_records().await)
+}
+
+#[tauri::command]
+pub async fn get_literature(
+    task_id: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<Vec<LiteratureDto>, String> {
+    container
+        .db
+        .get_literature_by_task(&task_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn import_pdfs(
+    task_id: String,
+    pdf_paths: Vec<String>,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<Vec<LiteratureDto>, String> {
+    use citeforge_pdf::PdfParser;
+
+    let parser = PdfParser;
+    let mut imported: Vec<LiteratureDto> = Vec::new();
+
+    for path_str in &pdf_paths {
+        let path = Path::new(path_str);
+        if !path.exists() {
+            tracing::warn!("PDF not found: {}", path_str);
+            continue;
+        }
+
+        // Parse PDF to extract metadata
+        let bytes = std::fs::read(path).map_err(|e| format!("failed to read {}: {}", path_str, e))?;
+        let doc = lopdf::Document::load_mem(&bytes)
+            .map_err(|e| format!("failed to parse {}: {}", path_str, e))?;
+
+        // Extract title from trailer or filename
+        let title = parser
+            .extract_metadata(&doc)
+            .and_then(|m| m.title)
+            .unwrap_or_else(|| {
+                path.file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("Unknown")
+                    .to_string()
+            });
+
+        // Authors from metadata or use Unknown
+        let authors: Vec<String> = parser
+            .extract_metadata(&doc)
+            .map(|m| {
+                if m.authors.is_empty() {
+                    vec!["Unknown".to_string()]
+                } else {
+                    m.authors
+                }
+            })
+            .unwrap_or_else(|| vec!["Unknown".to_string()]);
+
+        let lit = LiteratureDto {
+            id: uuid::Uuid::new_v4().to_string(),
+            task_id: task_id.clone(),
+            title,
+            authors,
+            abstract_text: None,
+            doi: None,
+            year: None,
+            venue: None,
+            citation_count: None,
+            file_path: Some(path_str.clone()),
+            source: "pdf".to_string(),
+            verified: false,
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+
+        container
+            .db
+            .save_literature(&lit)
+            .await
+            .map_err(|e| format!("failed to save literature: {}", e))?;
+
+        imported.push(lit);
+    }
+
+    Ok(imported)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchResultDto {
+    pub paper_id: String,
+    pub title: String,
+    pub authors: Vec<String>,
+    pub abstract_text: Option<String>,
+    pub year: Option<i32>,
+    pub venue: Option<String>,
+    pub citation_count: Option<i32>,
+    pub doi: Option<String>,
+}
+
+#[tauri::command]
+pub async fn search_semantic_scholar(
+    query: String,
+    limit: Option<usize>,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<Vec<SearchResultDto>, String> {
+    use citeforge_search::SemanticScholarClient;
+
+    let limit = limit.unwrap_or(10).min(100);
+    let api_key = container.config.llm.api_key.clone();
+
+    let client = SemanticScholarClient::new(api_key);
+    let results: Vec<LiteratureEntry> = client
+        .search(&query, limit)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let results: Vec<SearchResultDto> = results
+        .into_iter()
+        .map(|entry| SearchResultDto {
+            paper_id: entry.id,
+            title: entry.title,
+            authors: entry.authors,
+            abstract_text: entry.abstract_text,
+            year: entry.year,
+            venue: entry.venue,
+            citation_count: entry.citation_count,
+            doi: entry.doi,
+        })
+        .collect();
+
+    Ok(results)
+}
+
+#[tauri::command]
+pub async fn enrich_literature_metadata(
+    literature_id: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<citeforge_workspace::LiteratureDto, String> {
+    use citeforge_search::SemanticScholarClient;
+
+    // Load existing literature
+    let all = container
+        .db
+        .get_literature_by_task("*")
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let mut lit = all
+        .into_iter()
+        .find(|l| l.id == literature_id)
+        .ok_or_else(|| "literature not found".to_string())?;
+
+    let query = lit.title.clone();
+    let api_key = container.config.llm.api_key.clone();
+    let client = SemanticScholarClient::new(api_key);
+
+    let results = client
+        .search(&query, 3)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if let Some(best) = results.into_iter().next() {
+        lit.abstract_text = lit.abstract_text.or(best.abstract_text);
+        lit.doi = lit.doi.or(best.doi);
+        lit.year = lit.year.or(best.year);
+        lit.venue = lit.venue.or(best.venue);
+        lit.citation_count = lit.citation_count.or(best.citation_count);
+        if lit.authors.is_empty() || lit.authors == vec!["Unknown".to_string()] {
+            lit.authors = best.authors;
+        }
+    }
+
+    container
+        .db
+        .save_literature(&lit)
+        .await
+        .map_err(|e| format!("failed to save enriched literature: {}", e))?;
+
+    Ok(lit)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InsertCitationDto {
+    pub paper_id: String,
+    pub title: String,
+    pub authors: Vec<String>,
+    pub abstract_text: Option<String>,
+    pub year: Option<i32>,
+    pub venue: Option<String>,
+    pub citation_count: Option<i32>,
+    pub doi: Option<String>,
+}
+
+#[tauri::command]
+pub async fn insert_citation(
+    task_id: String,
+    citation: InsertCitationDto,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<LiteratureDto, String> {
+    let lit = LiteratureDto {
+        id: citation.paper_id,
+        task_id,
+        title: citation.title,
+        authors: citation.authors,
+        abstract_text: citation.abstract_text,
+        doi: citation.doi,
+        year: citation.year,
+        venue: citation.venue,
+        citation_count: citation.citation_count,
+        file_path: None,
+        source: "semantic_scholar".to_string(),
+        verified: false,
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+
+    container
+        .db
+        .save_literature(&lit)
+        .await
+        .map_err(|e| format!("failed to save citation: {}", e))?;
+
+    Ok(lit)
+}
+
+// ===================== NOTES =====================
+
+#[tauri::command]
+pub async fn save_note(
+    note: citeforge_workspace::NoteDto,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<citeforge_workspace::NoteDto, String> {
+    let now = chrono::Utc::now().to_rfc3339();
+    let note = citeforge_workspace::NoteDto {
+        updated_at: now,
+        ..note
+    };
+    container
+        .db
+        .save_note(&note)
+        .await
+        .map_err(|e| format!("failed to save note: {}", e))?;
+    Ok(note)
+}
+
+#[tauri::command]
+pub async fn get_notes(
+    task_id: Option<String>,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<Vec<citeforge_workspace::NoteDto>, String> {
+    container
+        .db
+        .get_notes(task_id.as_deref())
+        .await
+        .map_err(|e| format!("failed to get notes: {}", e))
+}
+
+#[tauri::command]
+pub async fn get_note_by_id(
+    note_id: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<Option<citeforge_workspace::NoteDto>, String> {
+    container
+        .db
+        .get_note_by_id(&note_id)
+        .await
+        .map_err(|e| format!("failed to get note: {}", e))
+}
+
+#[tauri::command]
+pub async fn delete_note(
+    note_id: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<(), String> {
+    container
+        .db
+        .delete_note(&note_id)
+        .await
+        .map_err(|e| format!("failed to delete note: {}", e))
+}
+
+#[tauri::command]
+pub async fn search_notes(
+    query: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<Vec<citeforge_workspace::NoteDto>, String> {
+    container
+        .db
+        .search_notes(&query)
+        .await
+        .map_err(|e| format!("failed to search notes: {}", e))
+}
+
+// ===================== NOTE LINKS =====================
+
+#[tauri::command]
+pub async fn create_note_link(
+    source_note_id: String,
+    target_note_id: String,
+    link_type: Option<String>,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<citeforge_workspace::NoteLinkDto, String> {
+    let link = citeforge_workspace::NoteLinkDto {
+        id: format!("link-{}", uuid::Uuid::new_v4()),
+        source_note_id,
+        target_note_id,
+        link_type: link_type.unwrap_or_else(|| "reference".to_string()),
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+    container
+        .db
+        .create_note_link(&link)
+        .await
+        .map_err(|e| format!("failed to create note link: {}", e))?;
+    Ok(link)
+}
+
+#[tauri::command]
+pub async fn get_note_links(
+    note_id: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<Vec<citeforge_workspace::NoteLinkDto>, String> {
+    container
+        .db
+        .get_note_links(&note_id)
+        .await
+        .map_err(|e| format!("failed to get note links: {}", e))
+}
+
+#[tauri::command]
+pub async fn get_note_backlinks(
+    note_id: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<Vec<citeforge_workspace::NoteLinkDto>, String> {
+    container
+        .db
+        .get_note_backlinks(&note_id)
+        .await
+        .map_err(|e| format!("failed to get backlinks: {}", e))
+}
+
+#[tauri::command]
+pub async fn delete_note_link(
+    source_note_id: String,
+    target_note_id: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<(), String> {
+    container
+        .db
+        .delete_note_link(&source_note_id, &target_note_id)
+        .await
+        .map_err(|e| format!("failed to delete note link: {}", e))
+}
+
+// ===================== READING PROGRESS =====================
+
+#[tauri::command]
+pub async fn save_reading_progress(
+    progress: citeforge_workspace::ReadingProgressDto,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<(), String> {
+    container
+        .db
+        .save_reading_progress(&progress)
+        .await
+        .map_err(|e| format!("failed to save reading progress: {}", e))
+}
+
+#[tauri::command]
+pub async fn get_reading_progress(
+    literature_id: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<Option<citeforge_workspace::ReadingProgressDto>, String> {
+    container
+        .db
+        .get_reading_progress(&literature_id)
+        .await
+        .map_err(|e| format!("failed to get reading progress: {}", e))
+}
+
+// ===================== AGENT CHAT =====================
+
+#[tauri::command]
+pub async fn chat_with_agent(
+    task_id: String,
+    agent_name: String,
+    personality_prompt: String,
+    message: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<String, String> {
+    let service = crate::application::AgentChatService::new(
+        Arc::clone(&container.db),
+        Arc::clone(&container.llm),
+    );
+
+    service
+        .chat(
+            &task_id,
+            &agent_name,
+            &personality_prompt,
+            &message,
+            &crate::application::ChatContext::default(),
+        )
+        .await
+        .map_err(|e| format!("agent chat error: {}", e))
+}
+
+#[tauri::command]
+pub async fn get_agent_conversation(
+    task_id: String,
+    agent_name: Option<String>,
+    limit: Option<i64>,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<Vec<citeforge_workspace::AgentConversationDto>, String> {
+    container
+        .db
+        .get_agent_conversation(&task_id, agent_name.as_deref(), limit)
+        .await
+        .map_err(|e| format!("failed to get conversation: {}", e))
+}
+
+#[tauri::command]
+pub async fn start_agent_discussion(
+    task_id: String,
+    topic: String,
+    literature_ids: Vec<String>,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<Vec<citeforge_workspace::AgentConversationDto>, String> {
+    let service = crate::application::AgentChatService::new(
+        Arc::clone(&container.db),
+        Arc::clone(&container.llm),
+    );
+
+    service
+        .start_discussion(&task_id, &topic, &literature_ids)
+        .await
+        .map_err(|e| format!("discussion error: {}", e))
+}
+
+// ===================== LITERATURE SECTIONS =====================
+
+#[tauri::command]
+pub async fn save_literature_sections(
+    literature_id: String,
+    sections: Vec<citeforge_workspace::LiteratureSectionDto>,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<(), String> {
+    container
+        .db
+        .save_literature_sections(&literature_id, &sections)
+        .await
+        .map_err(|e| format!("failed to save sections: {}", e))
+}
+
+#[tauri::command]
+pub async fn get_literature_sections(
+    literature_id: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<Vec<citeforge_workspace::LiteratureSectionDto>, String> {
+    container
+        .db
+        .get_literature_sections(&literature_id)
+        .await
+        .map_err(|e| format!("failed to get sections: {}", e))
+}
+
+// ===================== THEMES =====================
+
+#[tauri::command]
+pub async fn save_themes(
+    task_id: String,
+    themes: Vec<citeforge_workspace::LiteratureThemeDto>,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<(), String> {
+    container
+        .db
+        .save_themes(&task_id, &themes)
+        .await
+        .map_err(|e| format!("failed to save themes: {}", e))
+}
+
+#[tauri::command]
+pub async fn get_themes(
+    task_id: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<Vec<citeforge_workspace::LiteratureThemeDto>, String> {
+    container
+        .db
+        .get_themes(&task_id)
+        .await
+        .map_err(|e| format!("failed to get themes: {}", e))
+}
+
+// ===================== LITERATURE NOTES =====================
+
+#[tauri::command]
+pub async fn link_note_to_literature(
+    link: citeforge_workspace::LiteratureNoteDto,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<(), String> {
+    container
+        .db
+        .link_note_to_literature(&link)
+        .await
+        .map_err(|e| format!("failed to link note: {}", e))
+}
+
+#[tauri::command]
+pub async fn get_notes_by_literature(
+    literature_id: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<Vec<citeforge_workspace::LiteratureNoteDto>, String> {
+    container
+        .db
+        .get_notes_by_literature(&literature_id)
+        .await
+        .map_err(|e| format!("failed to get literature notes: {}", e))
+}
+
+#[tauri::command]
+pub async fn get_literature_by_note(
+    note_id: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<Vec<citeforge_workspace::LiteratureNoteDto>, String> {
+    container
+        .db
+        .get_literature_by_note(&note_id)
+        .await
+        .map_err(|e| format!("failed to get literature by note: {}", e))
+}
+
+// ===================== BIBTEX IMPORT =====================
+
+#[tauri::command]
+pub async fn import_bibtex(
+    task_id: String,
+    bibtex_content: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<Vec<citeforge_workspace::LiteratureDto>, String> {
+    let entries = parse_bibtex_entries(&bibtex_content);
+    let mut imported = Vec::new();
+
+    for entry in entries {
+        let lit = citeforge_workspace::LiteratureDto {
+            id: format!("lit-{}", uuid::Uuid::new_v4()),
+            task_id: task_id.clone(),
+            title: entry.title.unwrap_or_else(|| "Unknown".to_string()),
+            authors: entry.authors,
+            abstract_text: entry.abstract_text,
+            doi: entry.doi,
+            year: entry.year,
+            venue: entry.journal.or(entry.booktitle),
+            citation_count: None,
+            file_path: None,
+            source: "bibtex".to_string(),
+            verified: false,
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+
+        container
+            .db
+            .save_literature(&lit)
+            .await
+            .map_err(|e| format!("failed to save bibtex entry: {}", e))?;
+
+        imported.push(lit);
+    }
+
+    Ok(imported)
+}
+
+#[derive(Debug, Default)]
+struct BibtexEntry {
+    title: Option<String>,
+    authors: Vec<String>,
+    abstract_text: Option<String>,
+    doi: Option<String>,
+    year: Option<i32>,
+    journal: Option<String>,
+    booktitle: Option<String>,
+}
+
+fn parse_bibtex_entries(content: &str) -> Vec<BibtexEntry> {
+    let mut entries = Vec::new();
+    let mut current = BibtexEntry::default();
+    let mut in_entry = false;
+    let mut key = String::new();
+    let mut value = String::new();
+    let mut brace_depth = 0;
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        if trimmed.starts_with('@') && trimmed.contains('{') {
+            if in_entry && !current.title.is_none() {
+                entries.push(std::mem::take(&mut current));
+            }
+            in_entry = true;
+            continue;
+        }
+
+        if !in_entry {
+            continue;
+        }
+
+        // Parse key = {value} or key = "value"
+        if let Some(eq_pos) = trimmed.find('=') {
+            key = trimmed[..eq_pos].trim().to_lowercase();
+            let rest = trimmed[eq_pos + 1..].trim();
+
+            // Extract value
+            if rest.starts_with('{') || rest.starts_with('"') {
+                let end_char = if rest.starts_with('{') { '}' } else { '"' };
+                if let Some(end_pos) = rest.rfind(end_char) {
+                    value = rest[1..end_pos].trim().to_string();
+                } else {
+                    value = rest.trim_start_matches(|c| c == '{' || c == '"').to_string();
+                }
+            } else {
+                value = rest.trim_end_matches(',').to_string();
+            }
+
+            match key.as_str() {
+                "title" => current.title = Some(value),
+                "author" => {
+                    current.authors = value
+                        .split(" and ")
+                        .map(|s| s.trim().to_string())
+                        .collect();
+                }
+                "abstract" => current.abstract_text = Some(value),
+                "doi" => current.doi = Some(value),
+                "year" => current.year = value.parse().ok(),
+                "journal" => current.journal = Some(value),
+                "booktitle" => current.booktitle = Some(value),
+                _ => {}
+            }
+        }
+
+        if trimmed == "}" {
+            if in_entry {
+                entries.push(std::mem::take(&mut current));
+            }
+            in_entry = false;
+        }
+    }
+
+    if in_entry && !current.title.is_none() {
+        entries.push(current);
+    }
+
+    entries
 }
