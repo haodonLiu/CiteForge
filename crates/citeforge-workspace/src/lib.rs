@@ -4,7 +4,10 @@ pub mod event_log;
 pub mod lock;
 pub mod time_tracker;
 
-pub use db::Database;
+pub use db::{
+    Database, LiteratureDto, NoteDto, NoteLinkDto, ReadingProgressDto,
+    AgentConversationDto, LiteratureSectionDto, LiteratureThemeDto, LiteratureNoteDto,
+};
 pub use error::WorkspaceError;
 pub use event_log::EventLog;
 pub use time_tracker::TimeTracker;
