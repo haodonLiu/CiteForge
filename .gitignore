@@ -33,3 +33,15 @@ out/
 node_modules/
 src/node_modules/
 *.map
+src/**/*.js
+src/lib/**/*.js
+src/hooks/**/*.js
+src/pages/**/*.js
+src/components/**/*.js
+!src/**/*.config.js
+
+# Generated
+src-tauri/gen/
+src-tauri/python_models/
+python_models/
+.claude/
