@@ -20,19 +20,22 @@ export interface ApiTaskStatusResponse {
 export interface ApiLiterature {
   id: string;
   title: string;
-  authors: ApiAuthor[];
+  // Backend sends string[] but we also accept ApiAuthor[] for compatibility
+  authors: ApiAuthor[] | string[];
   abstract_text?: string;
   doi?: string;
   year?: number;
   venue?: string;
-  tags: string[];
-  categories: string[];
+  tags?: string[];
+  categories?: string[];
   citation_count?: number;
   file_path?: string;
   source: string;
-  imported_at: string;
-  read_progress: number;
-  read_status: 'Unread' | 'Reading' | 'Read' | 'ToRead' | 'Archived';
+  // Backend uses created_at, frontend expects imported_at
+  imported_at?: string;
+  created_at?: string;
+  read_progress?: number;
+  read_status?: 'Unread' | 'Reading' | 'Read' | 'ToRead' | 'Archived';
 }
 
 export interface ApiAuthor {
@@ -213,4 +216,28 @@ export interface ApiLiteratureNote {
   section_id?: string;
   selection_text?: string;
   created_at: string;
+}
+
+// Search result from Semantic Scholar
+export interface ApiSearchResult {
+  paper_id: string;
+  title: string;
+  authors: string[];
+  abstract_text?: string;
+  year?: number;
+  venue?: string;
+  citation_count?: number;
+  doi?: string;
+}
+
+// Request to insert a citation manually or from search
+export interface ApiInsertCitationRequest {
+  paper_id: string;
+  title: string;
+  authors: string[];
+  abstract_text?: string;
+  year?: number;
+  venue?: string;
+  citation_count?: number;
+  doi?: string;
 }

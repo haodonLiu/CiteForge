@@ -1,5 +1,6 @@
 use crate::error::WorkspaceError;
 use citeforge_core::entity::{LiteratureEntry, Task, TaskState};
+use uuid::Uuid;
 use citeforge_core::event::TaskEvent;
 use rusqlite::{params, Connection};
 use std::path::Path;
@@ -147,6 +148,18 @@ impl Database {
             conn.execute_batch(migration)?;
             conn.execute(
                 "INSERT OR REPLACE INTO schema_version (version) VALUES (2)",
+                [],
+            )?;
+        }
+
+        if current_version < 3 {
+            // Add source column to literature_entries if not exists
+            let _ = conn.execute(
+                "ALTER TABLE literature_entries ADD COLUMN source TEXT NOT NULL DEFAULT 'pdf'",
+                [],
+            );
+            conn.execute(
+                "INSERT OR REPLACE INTO schema_version (version) VALUES (3)",
                 [],
             )?;
         }
@@ -333,6 +346,80 @@ impl Database {
         Ok(())
     }
 
+    pub async fn copy_to_task(&self, literature_id: &str, task_id: &str) -> Result<LiteratureDto, WorkspaceError> {
+        let conn = self.conn.lock().await;
+
+        // Get the source literature
+        let mut stmt = conn.prepare(
+            "SELECT id, task_id, title, authors, abstract_text, doi, year, venue, citation_count, verified, file_path, source, created_at
+             FROM literature_entries WHERE id = ?1",
+        )?;
+
+        let source = stmt.query_row(params![literature_id], |row| {
+            let authors_json: String = row.get(3)?;
+            let authors: Vec<String> = serde_json::from_str(&authors_json).unwrap_or_default();
+            Ok(LiteratureDto {
+                id: row.get(0)?,
+                task_id: row.get(1)?,
+                title: row.get(2)?,
+                authors,
+                abstract_text: row.get(4)?,
+                doi: row.get(5)?,
+                year: row.get(6)?,
+                venue: row.get(7)?,
+                citation_count: row.get(8)?,
+                verified: row.get::<_, i32>(9)? != 0,
+                file_path: row.get(10)?,
+                source: row.get(11)?,
+                created_at: row.get(12)?,
+            })
+        }).map_err(|_| WorkspaceError::NotFound(format!("Literature not found")))?;
+
+        // Create a new entry for the task with new ID
+        let new_lit = LiteratureDto {
+            id: Uuid::new_v4().to_string(),
+            task_id: task_id.to_string(),
+            title: source.title,
+            authors: source.authors,
+            abstract_text: source.abstract_text,
+            doi: source.doi,
+            year: source.year,
+            venue: source.venue,
+            citation_count: source.citation_count,
+            file_path: source.file_path,
+            source: source.source,
+            verified: source.verified,
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+
+        drop(stmt);
+
+        // Save the new entry
+        let authors_json = serde_json::to_string(&new_lit.authors).map_err(WorkspaceError::serde)?;
+        conn.execute(
+            "INSERT INTO literature_entries (id, task_id, sort_order, title, authors, abstract_text, doi, year, venue, citation_count, verified, file_path, source, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            params![
+                new_lit.id,
+                new_lit.task_id,
+                0,
+                new_lit.title,
+                authors_json,
+                new_lit.abstract_text,
+                new_lit.doi,
+                new_lit.year,
+                new_lit.venue,
+                new_lit.citation_count,
+                new_lit.verified as i32,
+                new_lit.file_path,
+                new_lit.source,
+                new_lit.created_at,
+                chrono::Utc::now().to_rfc3339(),
+            ],
+        )?;
+
+        Ok(new_lit)
+    }
+
     pub async fn get_literature_by_task(
         &self,
         task_id: &str,
@@ -390,6 +477,60 @@ impl Database {
         Ok(entries)
     }
 
+    pub async fn get_global_literature(&self) -> Result<Vec<LiteratureDto>, WorkspaceError> {
+        let conn = self.conn.lock().await;
+        let mut stmt = conn.prepare(
+            "SELECT id, task_id, title, authors, abstract_text, doi, year, venue, citation_count, verified, file_path, source, created_at
+             FROM literature_entries WHERE task_id IS NULL OR task_id = '' ORDER BY sort_order ASC",
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            let authors_json: String = row.get(3)?;
+            let authors: Vec<String> =
+                serde_json::from_str(&authors_json).unwrap_or_default();
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Option<String>>(1)?,
+                row.get::<_, String>(2)?,
+                authors,
+                row.get::<_, Option<String>>(4)?,
+                row.get::<_, Option<String>>(5)?,
+                row.get::<_, Option<i32>>(6)?,
+                row.get::<_, Option<String>>(7)?,
+                row.get::<_, Option<i32>>(8)?,
+                row.get::<_, i32>(9)? != 0,
+                row.get::<_, Option<String>>(10)?,
+                row.get::<_, String>(11)?,
+                row.get::<_, String>(12)?,
+            ))
+        })?;
+
+        let entries: Vec<LiteratureDto> = rows
+            .filter_map(|r| r.ok())
+            .map(
+                |(id, task_id, title, authors, abstract_text, doi, year, venue, citation_count, verified, file_path, source, created_at)| {
+                    LiteratureDto {
+                        id,
+                        task_id: task_id.unwrap_or_default(),
+                        title,
+                        authors,
+                        abstract_text,
+                        doi,
+                        year,
+                        venue,
+                        citation_count,
+                        file_path,
+                        source,
+                        verified,
+                        created_at,
+                    }
+                },
+            )
+            .collect();
+
+        Ok(entries)
+    }
+
     // ===================== NOTES =====================
 
     pub async fn save_note(&self, note: &NoteDto) -> Result<(), WorkspaceError> {
@@ -410,24 +551,35 @@ impl Database {
 
     pub async fn get_notes(&self, task_id: Option<&str>) -> Result<Vec<NoteDto>, WorkspaceError> {
         let conn = self.conn.lock().await;
-        let mut stmt = if let Some(_tid) = task_id {
-            conn.prepare("SELECT id, task_id, title, content, created_at, updated_at FROM notes WHERE task_id = ?1 ORDER BY updated_at DESC")?
+        let notes = if let Some(tid) = task_id {
+            let mut stmt = conn.prepare("SELECT id, task_id, title, content, created_at, updated_at FROM notes WHERE task_id = ?1 ORDER BY updated_at DESC")?;
+            let rows = stmt.query_map(params![tid], |row| {
+                Ok(NoteDto {
+                    id: row.get(0)?,
+                    task_id: row.get(1)?,
+                    title: row.get(2)?,
+                    content: row.get(3)?,
+                    created_at: row.get(4)?,
+                    updated_at: row.get(5)?,
+                })
+            })?;
+            rows.filter_map(|r| r.ok()).collect()
         } else {
-            conn.prepare("SELECT id, task_id, title, content, created_at, updated_at FROM notes ORDER BY updated_at DESC")?
+            let mut stmt = conn.prepare("SELECT id, task_id, title, content, created_at, updated_at FROM notes ORDER BY updated_at DESC")?;
+            let rows = stmt.query_map([], |row| {
+                Ok(NoteDto {
+                    id: row.get(0)?,
+                    task_id: row.get(1)?,
+                    title: row.get(2)?,
+                    content: row.get(3)?,
+                    created_at: row.get(4)?,
+                    updated_at: row.get(5)?,
+                })
+            })?;
+            rows.filter_map(|r| r.ok()).collect()
         };
 
-        let rows = stmt.query_map(params![task_id], |row| {
-            Ok(NoteDto {
-                id: row.get(0)?,
-                task_id: row.get(1)?,
-                title: row.get(2)?,
-                content: row.get(3)?,
-                created_at: row.get(4)?,
-                updated_at: row.get(5)?,
-            })
-        })?;
-
-        Ok(rows.filter_map(|r| r.ok()).collect())
+        Ok(notes)
     }
 
     pub async fn get_note_by_id(&self, note_id: &str) -> Result<Option<NoteDto>, WorkspaceError> {

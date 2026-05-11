@@ -1,7 +1,6 @@
-use crate::application::AppContainer;
 use citeforge_core::ports::ChatMessage;
 use citeforge_workspace::{
-    AgentConversationDto, Database, LiteratureDto, NoteDto,
+    AgentConversationDto, Database,
 };
 use std::sync::Arc;
 

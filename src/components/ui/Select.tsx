@@ -10,7 +10,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
         className={`
           w-full px-3 py-2 text-[13px]
           bg-surface border border-border rounded-lg
-          text-text-primary cursor-pointer
+          text-text-primary text-center cursor-pointer
           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
           transition-colors duration-150 hover:border-primary/50
           ${className}

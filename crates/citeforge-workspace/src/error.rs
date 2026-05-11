@@ -7,6 +7,8 @@ pub enum WorkspaceError {
     Database(#[from] rusqlite::Error),
     #[error("task not found: {0}")]
     TaskNotFound(String),
+    #[error("not found: {0}")]
+    NotFound(String),
     #[error("migration error: {0}")]
     Migration(String),
     #[error("serialization error: {0}")]

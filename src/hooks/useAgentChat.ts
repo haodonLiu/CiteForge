@@ -9,11 +9,11 @@ export function useAgentChat(taskId?: string, agentName?: string) {
   const [loading, setLoading] = useState(false);
 
   const loadConversation = useCallback(async () => {
-    if (!isTauri || !taskId || !agentName) return;
+    if (!isTauri || !taskId?.trim() || !agentName?.trim()) return;
     try {
       const data = await invoke<ApiAgentConversation[]>('get_agent_conversation', {
-        task_id: taskId,
-        agent_name: agentName,
+        task_id: taskId.trim(),
+        agent_name: agentName.trim(),
         limit: 50,
       });
       setMessages((data || []).map(mapApiAgentConversation).reverse());
@@ -24,12 +24,12 @@ export function useAgentChat(taskId?: string, agentName?: string) {
 
   const sendMessage = useCallback(
     async (message: string, personalityPrompt: string) => {
-      if (!isTauri || !taskId || !agentName || !message.trim()) return null;
+      if (!isTauri || !taskId?.trim() || !agentName?.trim() || !message.trim()) return null;
       setLoading(true);
       try {
         const response = await invoke<string>('chat_with_agent', {
-          task_id: taskId,
-          agent_name: agentName,
+          task_id: taskId.trim(),
+          agent_name: agentName.trim(),
           personality_prompt: personalityPrompt,
           message,
         });

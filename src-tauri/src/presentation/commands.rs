@@ -193,6 +193,8 @@ pub async fn save_settings(
             embedding_dimension: settings.chroma.embedding_dimension,
         },
         silent_threshold_minutes: container.config.silent_threshold_minutes,
+        theme: container.config.theme.clone(),
+        font: container.config.font.clone(),
     };
 
     // Save to file
@@ -203,6 +205,36 @@ pub async fn save_settings(
 
     tracing::info!("settings saved to {:?}", config_path);
     Ok(())
+}
+
+#[tauri::command]
+pub async fn set_setting(
+    key: String,
+    value: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<(), String> {
+    match key.as_str() {
+        "theme" | "font" => {
+            // Update in-memory config
+            let mut config = container.config.clone();
+            match key.as_str() {
+                "theme" => config.theme = Some(value),
+                "font" => config.font = Some(value),
+                _ => return Err("invalid key".to_string()),
+            }
+
+            // Save to file
+            let config_path = container.config.workspace.root.join("config.yaml");
+            let yaml = serde_yaml::to_string(&config)
+                .map_err(|e| format!("failed to serialize config: {}", e))?;
+            std::fs::write(&config_path, yaml)
+                .map_err(|e| format!("failed to write config: {}", e))?;
+
+            tracing::info!("setting {} saved", key);
+            Ok(())
+        }
+        _ => Err(format!("unknown setting key: {}", key)),
+    }
 }
 
 #[tauri::command]
@@ -417,19 +449,26 @@ pub async fn get_time_records(
 
 #[tauri::command]
 pub async fn get_literature(
-    task_id: String,
+    task_id: Option<String>,
     container: State<'_, Arc<AppContainer>>,
 ) -> Result<Vec<LiteratureDto>, String> {
-    container
-        .db
-        .get_literature_by_task(&task_id)
-        .await
-        .map_err(|e| e.to_string())
+    match task_id {
+        Some(tid) => container
+            .db
+            .get_literature_by_task(&tid)
+            .await
+            .map_err(|e| e.to_string()),
+        None => container
+            .db
+            .get_global_literature()
+            .await
+            .map_err(|e| e.to_string()),
+    }
 }
 
 #[tauri::command]
 pub async fn import_pdfs(
-    task_id: String,
+    task_id: Option<String>,
     pdf_paths: Vec<String>,
     container: State<'_, Arc<AppContainer>>,
 ) -> Result<Vec<LiteratureDto>, String> {
@@ -475,7 +514,7 @@ pub async fn import_pdfs(
 
         let lit = LiteratureDto {
             id: uuid::Uuid::new_v4().to_string(),
-            task_id: task_id.clone(),
+            task_id: task_id.clone().unwrap_or_default(),
             title,
             authors,
             abstract_text: None,
@@ -609,13 +648,13 @@ pub struct InsertCitationDto {
 
 #[tauri::command]
 pub async fn insert_citation(
-    task_id: String,
+    task_id: Option<String>,
     citation: InsertCitationDto,
     container: State<'_, Arc<AppContainer>>,
 ) -> Result<LiteratureDto, String> {
     let lit = LiteratureDto {
         id: citation.paper_id,
-        task_id,
+        task_id: task_id.unwrap_or_default(),
         title: citation.title,
         authors: citation.authors,
         abstract_text: citation.abstract_text,
@@ -636,6 +675,19 @@ pub async fn insert_citation(
         .map_err(|e| format!("failed to save citation: {}", e))?;
 
     Ok(lit)
+}
+
+#[tauri::command]
+pub async fn copy_to_task(
+    literature_id: String,
+    task_id: String,
+    container: State<'_, Arc<AppContainer>>,
+) -> Result<LiteratureDto, String> {
+    container
+        .db
+        .copy_to_task(&literature_id, &task_id)
+        .await
+        .map_err(|e| format!("failed to copy to task: {}", e))
 }
 
 // ===================== NOTES =====================
@@ -896,14 +948,17 @@ pub async fn save_themes(
 
 #[tauri::command]
 pub async fn get_themes(
-    task_id: String,
+    task_id: Option<String>,
     container: State<'_, Arc<AppContainer>>,
 ) -> Result<Vec<citeforge_workspace::LiteratureThemeDto>, String> {
-    container
-        .db
-        .get_themes(&task_id)
-        .await
-        .map_err(|e| format!("failed to get themes: {}", e))
+    match task_id {
+        Some(tid) => container
+            .db
+            .get_themes(&tid)
+            .await
+            .map_err(|e| format!("failed to get themes: {}", e)),
+        None => Ok(Vec::new()),
+    }
 }
 
 // ===================== LITERATURE NOTES =====================
@@ -999,9 +1054,9 @@ fn parse_bibtex_entries(content: &str) -> Vec<BibtexEntry> {
     let mut entries = Vec::new();
     let mut current = BibtexEntry::default();
     let mut in_entry = false;
-    let mut key = String::new();
-    let mut value = String::new();
-    let mut brace_depth = 0;
+    let mut key;
+    let mut value;
+    let mut _brace_depth = 0;
 
     for line in content.lines() {
         let trimmed = line.trim();

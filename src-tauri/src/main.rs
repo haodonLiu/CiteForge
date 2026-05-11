@@ -13,6 +13,7 @@ pub mod workspace {
 
 use anyhow::Context;
 use application::AppContainer;
+use std::sync::Arc;
 use presentation::commands;
 use std::fs;
 use tracing_subscriber::{
@@ -74,7 +75,8 @@ async fn main() -> anyhow::Result<()> {
     };
 
     tauri::Builder::default()
-        .manage(container)
+        .manage(Arc::new(container))
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::run_task,
             commands::resume_task,
@@ -85,6 +87,7 @@ async fn main() -> anyhow::Result<()> {
             commands::set_theme,
             commands::get_settings,
             commands::save_settings,
+            commands::set_setting,
             commands::get_events,
             commands::subscribe_events,
             commands::generate_text_index,
@@ -117,6 +120,11 @@ async fn main() -> anyhow::Result<()> {
             commands::get_literature_by_note,
             commands::import_bibtex,
             commands::enrich_literature_metadata,
+            commands::get_literature,
+            commands::import_pdfs,
+            commands::search_semantic_scholar,
+            commands::insert_citation,
+            commands::copy_to_task,
         ])
         .run(tauri::generate_context!())
         .context("failed to run tauri application")?;

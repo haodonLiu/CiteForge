@@ -24,6 +24,8 @@ import type {
   ApiLiteratureSection,
   ApiLiteratureTheme,
   ApiLiteratureNote,
+  ApiSearchResult,
+  ApiInsertCitationRequest,
 } from './api';
 
 export type TaskState =
@@ -214,19 +216,21 @@ export function mapApiLiterature(api: ApiLiterature): Literature {
   return {
     id: api.id,
     title: api.title,
-    authors: api.authors.map(mapApiAuthor),
+    authors: api.authors.map((a) =>
+      typeof a === 'string' ? { name: a } : mapApiAuthor(a)
+    ),
     abstractText: api.abstract_text,
     doi: api.doi,
     year: api.year,
     venue: api.venue,
-    tags: api.tags,
-    categories: api.categories,
+    tags: api.tags || [],
+    categories: api.categories || [],
     citationCount: api.citation_count,
     filePath: api.file_path,
     source: api.source,
-    importedAt: api.imported_at,
-    readProgress: api.read_progress,
-    readStatus: api.read_status,
+    importedAt: api.imported_at || api.created_at || new Date().toISOString(),
+    readProgress: api.read_progress ?? 0,
+    readStatus: api.read_status ?? 'Unread',
   };
 }
 
@@ -435,6 +439,30 @@ export interface LiteratureNote {
   createdAt: string;
 }
 
+// Search result from academic paper search
+export interface SearchResult {
+  paperId: string;
+  title: string;
+  authors: string[];
+  abstractText?: string;
+  year?: number;
+  venue?: string;
+  citationCount?: number;
+  doi?: string;
+}
+
+// Request to insert a citation manually or from search
+export interface InsertCitationRequest {
+  paperId: string;
+  title: string;
+  authors: string[];
+  abstractText?: string;
+  year?: number;
+  venue?: string;
+  citationCount?: number;
+  doi?: string;
+}
+
 // API to Domain mappers for new types
 export function mapApiNote(api: ApiNote): Note {
   return {
@@ -515,5 +543,31 @@ export function mapApiLiteratureNote(api: ApiLiteratureNote): LiteratureNote {
     sectionId: api.section_id,
     selectionText: api.selection_text,
     createdAt: api.created_at,
+  };
+}
+
+export function mapApiSearchResult(api: ApiSearchResult): SearchResult {
+  return {
+    paperId: api.paper_id,
+    title: api.title,
+    authors: api.authors,
+    abstractText: api.abstract_text,
+    year: api.year,
+    venue: api.venue,
+    citationCount: api.citation_count,
+    doi: api.doi,
+  };
+}
+
+export function mapInsertCitationRequest(domain: InsertCitationRequest): ApiInsertCitationRequest {
+  return {
+    paper_id: domain.paperId,
+    title: domain.title,
+    authors: domain.authors,
+    abstract_text: domain.abstractText,
+    year: domain.year,
+    venue: domain.venue,
+    citation_count: domain.citationCount,
+    doi: domain.doi,
   };
 }

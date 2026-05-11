@@ -11,6 +11,12 @@ pub struct AppConfig {
     /// Silent threshold in minutes (1-60, default 5)
     #[serde(default = "default_silent_threshold")]
     pub silent_threshold_minutes: u32,
+    /// User theme preference
+    #[serde(default)]
+    pub theme: Option<String>,
+    /// User font settings as JSON string
+    #[serde(default)]
+    pub font: Option<String>,
 }
 
 fn default_silent_threshold() -> u32 {
@@ -74,6 +80,8 @@ impl Default for AppConfig {
             },
             chroma: ChromaConfig::default(),
             silent_threshold_minutes: 5,
+            theme: None,
+            font: None,
         }
     }
 }

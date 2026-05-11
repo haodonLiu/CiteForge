@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke, isTauri } from '@/lib/tauri';
 import type { Literature } from '@/lib/types';
-import type { ApiLiterature } from '@/lib/types/api';
-import { mapApiLiterature } from '@/lib/types/domain';
+import type { ApiLiterature, ApiSearchResult, ApiInsertCitationRequest } from '@/lib/types/api';
+import { mapApiLiterature, mapApiSearchResult, mapInsertCitationRequest } from '@/lib/types/domain';
+import type { SearchResult, InsertCitationRequest } from '@/lib/types/domain';
 
 interface UseLiteratureOptions {
   taskId?: string;
@@ -14,7 +15,7 @@ export function useLiterature({ taskId }: UseLiteratureOptions = {}) {
   const [error, setError] = useState<string | null>(null);
 
   const loadLiterature = useCallback(async () => {
-    if (!isTauri || !taskId) {
+    if (!isTauri) {
       setLoading(false);
       return;
     }
@@ -22,7 +23,7 @@ export function useLiterature({ taskId }: UseLiteratureOptions = {}) {
     try {
       setLoading(true);
       setError(null);
-      const data = await invoke<ApiLiterature[]>('get_literature', { task_id: taskId });
+      const data = await invoke<ApiLiterature[]>('get_literature', { taskId });
       setLiterature((data || []).map(mapApiLiterature));
     } catch (e) {
       console.error('Failed to load literature:', e);
@@ -33,12 +34,12 @@ export function useLiterature({ taskId }: UseLiteratureOptions = {}) {
   }, [taskId]);
 
   const addLiterature = useCallback(async (pdfPaths: string[]) => {
-    if (!isTauri || !taskId) return;
+    if (!isTauri) return;
 
     try {
       const imported = await invoke<ApiLiterature[]>('import_pdfs', {
-        task_id: taskId,
-        pdf_paths: pdfPaths,
+        taskId,
+        pdfPaths,
       });
       const newLiterature = (imported || []).map(mapApiLiterature);
       setLiterature(prev => [...prev, ...newLiterature]);
@@ -54,6 +55,58 @@ export function useLiterature({ taskId }: UseLiteratureOptions = {}) {
     ));
   }, []);
 
+  // Search academic papers via Semantic Scholar
+  const searchAcademicPapers = useCallback(async (query: string): Promise<SearchResult[]> => {
+    if (!isTauri) return [];
+
+    try {
+      const results = await invoke<ApiSearchResult[]>('search_semantic_scholar', {
+        query,
+        limit: 20,
+      });
+      return (results || []).map(mapApiSearchResult);
+    } catch (e) {
+      console.error('Failed to search papers:', e);
+      throw e;
+    }
+  }, []);
+
+  // Insert a citation manually or from search results
+  const insertCitation = useCallback(async (citation: InsertCitationRequest): Promise<Literature> => {
+    if (!isTauri) throw new Error('Not in Tauri');
+
+    try {
+      const apiRequest = mapInsertCitationRequest(citation);
+      const result = await invoke<ApiLiterature>('insert_citation', {
+        taskId,
+        citation: apiRequest,
+      });
+      const newLiterature = mapApiLiterature(result);
+      setLiterature(prev => [...prev, newLiterature]);
+      return newLiterature;
+    } catch (e) {
+      console.error('Failed to insert citation:', e);
+      throw e;
+    }
+  }, [taskId]);
+
+  // Copy literature from global library to a task
+  const copyToTask = useCallback(async (literatureId: string, targetTaskId: string): Promise<Literature> => {
+    if (!isTauri) throw new Error('Not in Tauri');
+
+    try {
+      const result = await invoke<ApiLiterature>('copy_to_task', {
+        literatureId,
+        taskId: targetTaskId,
+      });
+      const newLiterature = mapApiLiterature(result);
+      return newLiterature;
+    } catch (e) {
+      console.error('Failed to copy literature to task:', e);
+      throw e;
+    }
+  }, []);
+
   useEffect(() => {
     loadLiterature();
   }, [loadLiterature]);
@@ -65,5 +118,8 @@ export function useLiterature({ taskId }: UseLiteratureOptions = {}) {
     loadLiterature,
     addLiterature,
     updateLiteratureStatus,
+    searchAcademicPapers,
+    insertCitation,
+    copyToTask,
   };
 }

@@ -21,6 +21,11 @@ impl EventLog {
 
     pub async fn append(&self, event: &AgentEvent) -> Result<(), WorkspaceError> {
         let _guard = self.writer.lock().await;
+        // Create parent directory if it doesn't exist
+        if let Some(parent) = self.path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| WorkspaceError::Serde(format!("failed to create directory: {}", e)))?;
+        }
         let mut file = OpenOptions::new()
             .create(true)
             .append(true)
